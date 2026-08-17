@@ -1,0 +1,6 @@
+{
+  "name": "EYE Workflow Hub",
+  "description": "Official enterprise management platform for the Egyptian Youth Entity (EYE) organization, featuring complete workflows for members, leaders, and super admins.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

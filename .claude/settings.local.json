@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Read(eye-gharbia/*)",
+      "Read(eye-gharbia/.claude/**)",
+      "Read(eye-gharbia/src/**)",
+      "Read(eye-gharbia/supabase/**)",
+      "Read(eye-gharbia/public/**)",
+      "PowerShell(\\(Get-Content D:\\\\eye-gharbia\\\\supabase\\\\security_fix_final.sql\\).Count)",
+      "Bash(npm audit *)",
+      "Bash(npm install *)",
+      "Bash(npm view *)"
+    ]
+  }
+}

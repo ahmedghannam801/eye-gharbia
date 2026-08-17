@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120" fill="none">
+  <!-- Official Eagle Emblem of Egypt (Top Center) -->
+  <g transform="translate(40, 2)">
+    <!-- Eagle Spread Wings Silhouette -->
+    <path d="M60 18 C44 10, 24 16, 10 30 C20 34, 34 36, 48 34 L50 54 C36 52, 22 56, 14 68 C26 64, 40 62, 50 60 L52 76 L40 86 L48 86 L54 80 L60 86 L66 86 L62 76 L64 60 C74 62, 88 64, 100 68 C92 56, 78 52, 64 54 L66 34 C80 36, 94 34, 104 30 C90 16, 70 10, 54 18 Z" fill="url(#eagleGoldFill)" stroke="#B45309" stroke-width="1.2" />
+
+    <!-- Eagle Feathers Inner Lines -->
+    <path d="M24 26 C36 28, 46 30, 52 32" stroke="#FDE047" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M90 26 C78 28, 68 30, 62 32" stroke="#FDE047" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M26 42 C36 44, 44 46, 50 48" stroke="#FDE047" stroke-width="1" />
+    <path d="M88 42 C78 44, 70 46, 64 48" stroke="#FDE047" stroke-width="1" />
+
+    <!-- Eagle Head Facing Right -->
+    <path d="M58 10 C58 4, 66 4, 70 8 C72 10, 75 12, 78 12 C75 14, 72 16, 68 16 L66 20 L60 18 Z" fill="#F59E0B" />
+    <circle cx="65" cy="9" r="1.5" fill="#78350F" />
+
+    <!-- Central Egyptian Flag Shield -->
+    <rect x="49" y="30" width="16" height="28" rx="1.5" fill="#0F172A" stroke="#FDE047" stroke-width="1.8" />
+    <rect x="50" y="31" width="4.8" height="26" fill="#DC2626" />
+    <rect x="54.8" y="31" width="4.4" height="26" fill="#FFFFFF" />
+    <rect x="59.2" y="31" width="4.8" height="26" fill="#000000" />
+
+    <!-- Golden Scroll Base -->
+    <path d="M38 76 C50 72, 64 72, 76 76 L74 82 C62 79, 52 79, 40 82 Z" fill="url(#scrollGoldFill)" stroke="#92400E" stroke-width="1" />
+  </g>
+
+  <!-- Arabic Title: وزارة الشباب والرياضة -->
+  <text x="100" y="98" text-anchor="middle" fill="#FFFFFF" font-family="'Cairo', 'Segoe UI', Tahoma, sans-serif" font-weight="900" font-size="15" letter-spacing="0.3">وزارة الشباب والرياضة</text>
+
+  <!-- Golden Underline Separator (Image 2 Underline) -->
+  <line x1="20" y1="104" x2="180" y2="104" stroke="#F59E0B" stroke-width="1.5" opacity="0.9" />
+
+  <!-- English Title: Ministry of Youth and Sports -->
+  <text x="100" y="115" text-anchor="middle" fill="#FDE047" font-family="'Georgia', 'Times New Roman', serif" font-weight="600" font-size="9" letter-spacing="0.6">Ministry of Youth and Sports</text>
+
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="eagleGoldFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="40%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <linearGradient id="scrollGoldFill" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#FCD34D" />
+    </linearGradient>
+  </defs>
+</svg>

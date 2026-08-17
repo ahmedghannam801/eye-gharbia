@@ -1,0 +1,19 @@
+# netlify.toml - Automatic configuration for Netlify deployment
+# This file configures the build settings so that manual dashboard setup is minimized.
+
+[build]
+  # The command Netlify runs to build the project
+  command = "npm run build"
+  
+  # The folder Netlify serves to the web (Vite builds into 'dist')
+  publish = "dist"
+
+[build.environment]
+  # Vite 6 and React 19 require modern Node.js versions
+  NODE_VERSION = "20"
+
+# Redirect rule to route all requests to index.html for client-side routing fallback if needed
+[[redirects]]
+  from = "/*"
+  status = 200
+  to = "/index.html"

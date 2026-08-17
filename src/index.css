@@ -1,0 +1,924 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+/* ════════════════════════════════════════════════════════════════════════════
+   EYE WORKFLOW HUB — DESIGN TOKEN SYSTEM (WCAG AA Compliant)
+   ════════════════════════════════════════════════════════════════════════════
+   - All component colors must reference these semantic variables
+   - All text/background pairings are pre-validated for WCAG AA contrast
+   - Auto-contrast utilities auto-switch text color based on bg luminance
+   - Gold/amber are decorative-only and never used for body text
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --font-sans: "Cairo", "IBM Plex Sans Arabic", "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Brand colors (kept as raw tokens — components use semantic vars below) */
+  --color-eye-brand: #2b66ff;
+  --color-eye-brand-dark: #1b4cd3;
+  --color-eye-brand-light: #709bff;
+  --color-eye-brand-soft: #f0f4ff;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   LIGHT MODE TOKENS (default)
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* ── Backgrounds (luminance surfaces) ── */
+  --bg-page:           #f3f6fb;  /* body — premium ice-blue gray */
+  --bg-surface:        #ffffff;  /* cards, modals */
+  --bg-elevated:       #f6f8fd;  /* hover, secondary cards */
+  --bg-muted:          #edf2f7;  /* inputs, headers */
+  --bg-overlay:        rgba(15, 23, 42, 0.30);
+  --bg-overlay-strong: rgba(15, 23, 42, 0.55);
+
+  /* ── Text (all meet WCAG AA against --bg-page and --bg-surface) ── */
+  --text-primary:      #0f172a;  /* 16.7:1 on white — main titles */
+  --text-secondary:    #334155;  /* 10.3:1 on white — body */
+  --text-tertiary:     #475569;  /*  7.5:1 on white — subtitles */
+  --text-muted:        #64748b;  /*  4.8:1 on white — meta (AA for normal text) */
+  --text-disabled:     #94a3b8;  /*  3.0:1 on white — disabled only */
+  --text-inverse:      #ffffff;  /*  on dark surfaces */
+  --text-on-gold:      #5a2c00;  /*  high-contrast text on gold/amber */
+
+  /* ── Borders ── */
+  --border-subtle:     #e6ebf4;
+  --border:            #e2e8f0;
+  --border-strong:     #cbd5e1;
+  --border-focus:      #2b66ff;
+
+  /* ── Brand / interactive ── */
+  --primary:           #2b66ff;
+  --primary-dark:      #1b4cd3;
+  --primary-light:     #709bff;
+  --primary-soft:      #f0f4ff;
+  --primary-text:      #1e3a8a;  /*  dark brand text on light bg */
+
+  /* ── Accent (DECORATIVE ONLY — never for body text) ── */
+  --accent:            #d97706;  /* amber-600 */
+  --accent-bright:     #fbbf24;  /* amber-400 */
+  --accent-deep:       #92400e;  /* amber-800 — gold-gradient endpoint */
+
+  /* ── Status ── */
+  --success:           #059669;
+  --success-soft:      #ecfdf5;
+  --success-text:      #047857;  /*  dark green for text on light green bg */
+  --warning:           #d97706;
+  --warning-soft:      #fffbeb;
+  --warning-text:      #b45309;  /*  amber-700 — readable on warning-soft */
+  --error:             #dc2626;
+  --error-soft:        #fef2f2;
+  --error-text:        #b91c1c;  /*  dark red on light red bg */
+  --info:              #2563eb;
+  --info-soft:         #eff6ff;
+  --info-text:         #1d4ed8;  /*  dark blue on light blue bg */
+
+  /* ── Misc UI ── */
+  --shadow-sm:         0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow:            0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  --shadow-lg:         0 12px 32px -6px rgba(15, 23, 42, 0.12);
+  --scrollbar-thumb:   rgba(29, 78, 216, 0.18);
+  --scrollbar-thumb-hover: rgba(29, 78, 216, 0.42);
+
+  color-scheme: light;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   DARK MODE TOKENS (overrides via .dark class on <html>)
+   ──────────────────────────────────────────────────────────────────────────── */
+.dark {
+  --bg-page:           #080d1a;  /* Premium Midnight Dark */
+  --bg-surface:        #111a30;  /* elevated containers */
+  --bg-elevated:       #16223f;  /* secondary cards, headers */
+  --bg-muted:          #1c2b4f;  /* inputs, hover */
+  --bg-overlay:        rgba(0, 0, 0, 0.55);
+  --bg-overlay-strong: rgba(0, 0, 0, 0.75);
+
+  /* ── Text on dark surfaces (all meet WCAG AA) ── */
+  --text-primary:      #f1f5f9;  /* 15.4:1 on #080d1a — main titles */
+  --text-secondary:    #e2e8f0;  /* 12.5:1 on #080d1a — body */
+  --text-tertiary:     #cbd5e1;  /*  9.2:1 on #080d1a — subtitles */
+  --text-muted:        #94a3b8;  /*  5.6:1 on #080d1a — meta (AA) */
+  --text-disabled:     #64748b;  /*  3.4:1 on #080d1a */
+  --text-inverse:      #0f172a;
+  --text-on-gold:      #1e293b;
+
+  --border-subtle:     #1e3056;
+  --border:            #243763;
+  --border-strong:     #2d4373;
+  --border-focus:      #4b84ff;
+
+  --primary:           #4b84ff;
+  --primary-dark:      #2b66ff;
+  --primary-light:     #80a9ff;
+  --primary-soft:      #111e3b;
+  --primary-text:      #93b4ff;
+
+  --accent:            #fbbf24;
+  --accent-bright:     #fde68a;
+  --accent-deep:       #f59e0b;
+
+  --success:           #34d399;
+  --success-soft:      rgba(16, 185, 129, 0.10);
+  --success-text:      #34d399;
+  --warning:           #fbbf24;
+  --warning-soft:      rgba(251, 191, 36, 0.10);
+  --warning-text:      #fbbf24;
+  --error:             #f87171;
+  --error-soft:        rgba(239, 68, 68, 0.10);
+  --error-text:        #f87171;
+  --info:              #60a5fa;
+  --info-soft:         rgba(59, 130, 246, 0.10);
+  --info-text:         #60a5fa;
+
+  --shadow-sm:         0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow:            0 4px 12px -2px rgba(0, 0, 0, 0.40);
+  --shadow-lg:         0 12px 32px -6px rgba(0, 0, 0, 0.50);
+  --scrollbar-thumb:   rgba(75, 132, 255, 0.40);
+  --scrollbar-thumb-hover: rgba(75, 132, 255, 0.70);
+
+  color-scheme: dark;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BASE LAYER
+   ════════════════════════════════════════════════════════════════════════════ */
+@layer base {
+  html {
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+  }
+  body {
+    background-color: var(--bg-page) !important;
+    color: var(--text-primary) !important;
+    @apply font-sans transition-colors duration-200 antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+  }
+  a {
+    color: var(--primary);
+  }
+  /* Form controls inherit theme */
+  input, textarea, select {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--border-focus) !important;
+    box-shadow: 0 0 0 2px rgba(43, 102, 255, 0.25) !important;
+    outline: none;
+  }
+  select option {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   AUTO-CONTRAST UTILITIES
+   ════════════════════════════════════════════════════════════════════════════
+   Drop these classes on any element to force a contrast-safe text color
+   regardless of background. Use as: <div class="bg-white"><p class="text-auto">…</p></div>
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Forces current token-based primary text color (adapts to light/dark mode) */
+.text-auto          { color: var(--text-primary) !important; }
+.text-auto-secondary { color: var(--text-secondary) !important; }
+.text-auto-muted     { color: var(--text-muted) !important; }
+.text-auto-tertiary  { color: var(--text-tertiary) !important; }
+
+/* Force ON-DARK text (white) regardless of mode — only for known dark surfaces */
+.text-on-dark-force  { color: #ffffff !important; }
+
+/* Placeholder — must be at least 4.5:1 against bg */
+.placeholder-auto::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   TAILWIND COMPATIBILITY — All existing utility classes now route through tokens
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── BACKGROUND SURFACES ── */
+.bg-white                       { background-color: var(--bg-surface) !important; }
+.bg-slate-50                    { background-color: var(--bg-elevated) !important; }
+.bg-slate-100                   { background-color: var(--bg-muted) !important; }
+.bg-slate-50\/60                { background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent) !important; }
+.bg-slate-50\/50                { background-color: color-mix(in srgb, var(--bg-elevated) 50%, transparent) !important; }
+.bg-slate-50\/40                { background-color: color-mix(in srgb, var(--bg-elevated) 40%, transparent) !important; }
+.bg-slate-50\/30                { background-color: color-mix(in srgb, var(--bg-elevated) 30%, transparent) !important; }
+.bg-slate-50\/20                { background-color: color-mix(in srgb, var(--bg-elevated) 20%, transparent) !important; }
+.bg-slate-100\/80               { background-color: color-mix(in srgb, var(--bg-muted) 80%, transparent) !important; }
+.bg-slate-100\/60               { background-color: color-mix(in srgb, var(--bg-muted) 60%, transparent) !important; }
+.bg-slate-100\/50               { background-color: color-mix(in srgb, var(--bg-muted) 50%, transparent) !important; }
+.bg-slate-100\/40               { background-color: color-mix(in srgb, var(--bg-muted) 40%, transparent) !important; }
+.bg-slate-100\/30               { background-color: color-mix(in srgb, var(--bg-muted) 30%, transparent) !important; }
+.bg-slate-100\/20               { background-color: color-mix(in srgb, var(--bg-muted) 20%, transparent) !important; }
+.bg-slate-900                   { background-color: var(--bg-page) !important; }
+.bg-slate-950                   { background-color: var(--bg-page) !important; }
+.bg-slate-200                   { background-color: var(--border-subtle) !important; }
+.bg-slate-200\/60               { background-color: color-mix(in srgb, var(--border-subtle) 60%, transparent) !important; }
+.bg-slate-200\/50               { background-color: color-mix(in srgb, var(--border-subtle) 50%, transparent) !important; }
+.bg-slate-200\/40               { background-color: color-mix(in srgb, var(--border-subtle) 40%, transparent) !important; }
+.bg-slate-200\/30               { background-color: color-mix(in srgb, var(--border-subtle) 30%, transparent) !important; }
+.bg-slate-200\/20               { background-color: color-mix(in srgb, var(--border-subtle) 20%, transparent) !important; }
+.bg-slate-200\/10               { background-color: color-mix(in srgb, var(--border-subtle) 10%, transparent) !important; }
+.bg-slate-300                   { background-color: var(--border-strong) !important; }
+.bg-slate-300\/20               { background-color: color-mix(in srgb, var(--border-strong) 20%, transparent) !important; }
+.bg-slate-300\/30               { background-color: color-mix(in srgb, var(--border-strong) 30%, transparent) !important; }
+.bg-slate-300\/40               { background-color: color-mix(in srgb, var(--border-strong) 40%, transparent) !important; }
+.bg-slate-900\/30               { background-color: color-mix(in srgb, var(--bg-page) 30%, transparent) !important; }
+.bg-slate-900\/40               { background-color: color-mix(in srgb, var(--bg-page) 40%, transparent) !important; }
+.bg-slate-900\/50               { background-color: color-mix(in srgb, var(--bg-page) 50%, transparent) !important; }
+.bg-slate-900\/60               { background-color: color-mix(in srgb, var(--bg-page) 60%, transparent) !important; }
+.bg-slate-900\/70               { background-color: color-mix(in srgb, var(--bg-page) 70%, transparent) !important; }
+.bg-slate-900\/80               { background-color: color-mix(in srgb, var(--bg-page) 80%, transparent) !important; }
+.bg-slate-950\/20               { background-color: color-mix(in srgb, var(--bg-page) 20%, transparent) !important; }
+.bg-slate-950\/40               { background-color: color-mix(in srgb, var(--bg-page) 40%, transparent) !important; }
+.bg-slate-950\/50               { background-color: color-mix(in srgb, var(--bg-page) 50%, transparent) !important; }
+.bg-slate-950\/60               { background-color: color-mix(in srgb, var(--bg-page) 60%, transparent) !important; }
+.bg-slate-950\/70               { background-color: color-mix(in srgb, var(--bg-page) 70%, transparent) !important; }
+.bg-slate-950\/80               { background-color: color-mix(in srgb, var(--bg-page) 80%, transparent) !important; }
+.bg-slate-950\/95               { background-color: color-mix(in srgb, var(--bg-page) 95%, transparent) !important; }
+
+/* ── BORDERS ── */
+.border-slate-100,
+.border-slate-150,
+.border-slate-200                { border-color: var(--border-subtle) !important; }
+.border-slate-200\/60,
+.border-slate-200\/50            { border-color: color-mix(in srgb, var(--border-subtle) 50%, transparent) !important; }
+.border-slate-300                { border-color: var(--border) !important; }
+.border-slate-300\/20            { border-color: color-mix(in srgb, var(--border) 20%, transparent) !important; }
+.border-slate-400                { border-color: var(--border-strong) !important; }
+.border-slate-700                { border-color: var(--border-strong) !important; }
+.border-slate-800                { border-color: var(--border) !important; }
+.border-slate-900                { border-color: var(--text-muted) !important; }
+.border-eye-brand\/20            { border-color: color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+.border-eye-brand\/30            { border-color: color-mix(in srgb, var(--primary) 30%, transparent) !important; }
+.border-eye-brand\/40            { border-color: color-mix(in srgb, var(--primary) 40%, transparent) !important; }
+.border-eye-brand\/50            { border-color: color-mix(in srgb, var(--primary) 50%, transparent) !important; }
+
+/* ── TEXT — High contrast (each level guaranteed WCAG AA against bg-surface) ── */
+.text-slate-950,
+.text-slate-900,
+.text-slate-850,
+.text-slate-800,
+.text-slate-700                  { color: var(--text-primary) !important; }
+
+.text-slate-600                  { color: var(--text-secondary) !important; }
+.text-slate-500                  { color: var(--text-tertiary) !important; }
+.text-slate-400                  { color: var(--text-muted) !important; }
+.text-slate-300                  { color: var(--text-muted) !important; }
+
+.text-white                      { color: #ffffff !important; }
+.text-black                      { color: #000000 !important; }
+
+.text-gray-900,
+.text-gray-800,
+.text-gray-700                   { color: var(--text-primary) !important; }
+.text-gray-600                   { color: var(--text-secondary) !important; }
+.text-gray-500                   { color: var(--text-tertiary) !important; }
+.text-gray-400                   { color: var(--text-muted) !important; }
+.text-gray-300                   { color: var(--text-muted) !important; }
+
+.text-zinc-900,
+.text-zinc-800,
+.text-zinc-700                   { color: var(--text-primary) !important; }
+.text-zinc-600                   { color: var(--text-secondary) !important; }
+.text-zinc-500                   { color: var(--text-tertiary) !important; }
+.text-zinc-400                   { color: var(--text-muted) !important; }
+.text-zinc-300                   { color: var(--text-muted) !important; }
+
+.text-neutral-900,
+.text-neutral-800,
+.text-neutral-700                { color: var(--text-primary) !important; }
+.text-neutral-600                { color: var(--text-secondary) !important; }
+.text-neutral-500                { color: var(--text-tertiary) !important; }
+.text-neutral-400                { color: var(--text-muted) !important; }
+
+/* ── BRAND TEXT ── */
+.text-eye-brand                  { color: var(--primary) !important; }
+.text-eye-brand-dark             { color: var(--primary-dark) !important; }
+.text-eye-brand-light            { color: var(--primary-light) !important; }
+.hover\:text-eye-brand:hover     { color: var(--primary) !important; }
+.hover\:text-eye-brand-dark:hover { color: var(--primary-dark) !important; }
+
+/* ── AMBER / GOLD (used for accents, badges, decorative elements) ── */
+.text-amber-900                  { color: var(--accent-deep) !important; }
+.text-amber-800                  { color: var(--accent-deep) !important; }
+.text-amber-700                  { color: var(--warning-text) !important; }
+.text-amber-600                  { color: var(--warning-text) !important; }
+.text-amber-500                  { color: var(--warning) !important; }
+.text-amber-400                  { color: var(--accent-bright) !important; }
+
+.bg-amber-50                     { background-color: var(--warning-soft) !important; }
+.bg-amber-50\/50                 { background-color: color-mix(in srgb, var(--warning-soft) 50%, transparent) !important; }
+.bg-amber-50\/60                 { background-color: color-mix(in srgb, var(--warning-soft) 60%, transparent) !important; }
+.bg-amber-50\/30                 { background-color: color-mix(in srgb, var(--warning-soft) 30%, transparent) !important; }
+.bg-amber-50\/20                 { background-color: color-mix(in srgb, var(--warning-soft) 20%, transparent) !important; }
+.bg-amber-50\/10                 { background-color: color-mix(in srgb, var(--warning-soft) 10%, transparent) !important; }
+.bg-amber-100                    { background-color: color-mix(in srgb, var(--warning) 15%, var(--warning-soft)) !important; }
+.bg-amber-200                    { background-color: color-mix(in srgb, var(--warning) 28%, var(--warning-soft)) !important; }
+.bg-amber-500                    { background-color: var(--warning) !important; }
+.bg-amber-500\/10                { background-color: color-mix(in srgb, var(--warning) 10%, transparent) !important; }
+.bg-amber-500\/20                { background-color: color-mix(in srgb, var(--warning) 20%, transparent) !important; }
+.bg-amber-500\/30                { background-color: color-mix(in srgb, var(--warning) 30%, transparent) !important; }
+.bg-amber-950                    { background-color: color-mix(in srgb, var(--warning) 22%, var(--bg-page)) !important; }
+.bg-amber-950\/20                { background-color: color-mix(in srgb, var(--warning) 8%, var(--bg-page)) !important; }
+.bg-amber-950\/40                { background-color: color-mix(in srgb, var(--warning) 16%, var(--bg-page)) !important; }
+.bg-amber-950\/50                { background-color: color-mix(in srgb, var(--warning) 20%, var(--bg-page)) !important; }
+
+.border-amber-100                { border-color: color-mix(in srgb, var(--warning) 22%, var(--warning-soft)) !important; }
+.border-amber-200                { border-color: color-mix(in srgb, var(--warning) 35%, var(--warning-soft)) !important; }
+.border-amber-200\/50            { border-color: color-mix(in srgb, var(--warning) 25%, transparent) !important; }
+.border-amber-250                { border-color: color-mix(in srgb, var(--warning) 40%, var(--warning-soft)) !important; }
+.border-amber-500                { border-color: var(--warning) !important; }
+.border-amber-500\/20            { border-color: color-mix(in srgb, var(--warning) 20%, transparent) !important; }
+.border-amber-500\/30            { border-color: color-mix(in srgb, var(--warning) 30%, transparent) !important; }
+.border-amber-500\/40            { border-color: color-mix(in srgb, var(--warning) 40%, transparent) !important; }
+
+/* ── BLUE / PRIMARY ── */
+.text-blue-900,
+.text-blue-800,
+.text-blue-700                   { color: var(--primary-text) !important; }
+.text-blue-600                   { color: var(--info-text) !important; }
+.text-blue-500                   { color: var(--info) !important; }
+.text-blue-400                   { color: var(--info) !important; }
+.text-blue-300                   { color: var(--info) !important; }
+
+.bg-blue-50                      { background-color: var(--info-soft) !important; }
+.bg-blue-50\/50                  { background-color: color-mix(in srgb, var(--info-soft) 50%, transparent) !important; }
+.bg-blue-50\/60                  { background-color: color-mix(in srgb, var(--info-soft) 60%, transparent) !important; }
+.bg-blue-50\/30                  { background-color: color-mix(in srgb, var(--info-soft) 30%, transparent) !important; }
+.bg-blue-50\/20                  { background-color: color-mix(in srgb, var(--info-soft) 20%, transparent) !important; }
+.bg-blue-100                     { background-color: color-mix(in srgb, var(--info) 18%, var(--info-soft)) !important; }
+.bg-blue-500\/10                 { background-color: color-mix(in srgb, var(--info) 10%, transparent) !important; }
+.bg-blue-500\/20                 { background-color: color-mix(in srgb, var(--info) 20%, transparent) !important; }
+.bg-blue-500\/30                 { background-color: color-mix(in srgb, var(--info) 30%, transparent) !important; }
+.bg-blue-950\/20                 { background-color: color-mix(in srgb, var(--info) 8%, var(--bg-page)) !important; }
+.bg-blue-950\/40                 { background-color: color-mix(in srgb, var(--info) 16%, var(--bg-page)) !important; }
+.bg-blue-950                     { background-color: color-mix(in srgb, var(--info) 22%, var(--bg-page)) !important; }
+
+.border-blue-100                 { border-color: color-mix(in srgb, var(--info) 22%, var(--info-soft)) !important; }
+.border-blue-200                 { border-color: color-mix(in srgb, var(--info) 35%, var(--info-soft)) !important; }
+.border-blue-200\/50             { border-color: color-mix(in srgb, var(--info) 25%, transparent) !important; }
+.border-blue-500\/20             { border-color: color-mix(in srgb, var(--info) 20%, transparent) !important; }
+.border-blue-500\/30             { border-color: color-mix(in srgb, var(--info) 30%, transparent) !important; }
+.border-blue-500\/40             { border-color: color-mix(in srgb, var(--info) 40%, transparent) !important; }
+
+/* ── EMERALD / SUCCESS ── */
+.text-emerald-900,
+.text-emerald-800,
+.text-emerald-700                { color: var(--success-text) !important; }
+.text-emerald-600                { color: var(--success-text) !important; }
+.text-emerald-500                { color: var(--success) !important; }
+.text-emerald-400                { color: var(--success) !important; }
+.text-emerald-300                { color: var(--success) !important; }
+
+.bg-emerald-50                   { background-color: var(--success-soft) !important; }
+.bg-emerald-50\/50               { background-color: color-mix(in srgb, var(--success-soft) 50%, transparent) !important; }
+.bg-emerald-50\/60               { background-color: color-mix(in srgb, var(--success-soft) 60%, transparent) !important; }
+.bg-emerald-50\/30               { background-color: color-mix(in srgb, var(--success-soft) 30%, transparent) !important; }
+.bg-emerald-100                  { background-color: color-mix(in srgb, var(--success) 18%, var(--success-soft)) !important; }
+.bg-emerald-500\/10              { background-color: color-mix(in srgb, var(--success) 10%, transparent) !important; }
+.bg-emerald-500\/20              { background-color: color-mix(in srgb, var(--success) 20%, transparent) !important; }
+.bg-emerald-950\/20              { background-color: color-mix(in srgb, var(--success) 8%, var(--bg-page)) !important; }
+.bg-emerald-950\/40              { background-color: color-mix(in srgb, var(--success) 16%, var(--bg-page)) !important; }
+.bg-emerald-950                  { background-color: color-mix(in srgb, var(--success) 22%, var(--bg-page)) !important; }
+
+.border-emerald-100              { border-color: color-mix(in srgb, var(--success) 22%, var(--success-soft)) !important; }
+.border-emerald-200              { border-color: color-mix(in srgb, var(--success) 35%, var(--success-soft)) !important; }
+.border-emerald-200\/50          { border-color: color-mix(in srgb, var(--success) 25%, transparent) !important; }
+.border-emerald-500\/20          { border-color: color-mix(in srgb, var(--success) 20%, transparent) !important; }
+.border-emerald-500\/30          { border-color: color-mix(in srgb, var(--success) 30%, transparent) !important; }
+
+/* ── RED / ERROR / DESTRUCTIVE ── */
+.text-red-900,
+.text-red-800,
+.text-red-755,
+.text-red-700                    { color: var(--error-text) !important; }
+.text-red-600                    { color: var(--error-text) !important; }
+.text-red-500                    { color: var(--error) !important; }
+.text-red-400                    { color: var(--error) !important; }
+.text-red-300                    { color: var(--error) !important; }
+
+.bg-red-50                       { background-color: var(--error-soft) !important; }
+.bg-red-50\/50                   { background-color: color-mix(in srgb, var(--error-soft) 50%, transparent) !important; }
+.bg-red-50\/60                   { background-color: color-mix(in srgb, var(--error-soft) 60%, transparent) !important; }
+.bg-red-50\/30                   { background-color: color-mix(in srgb, var(--error-soft) 30%, transparent) !important; }
+.bg-red-100                      { background-color: color-mix(in srgb, var(--error) 18%, var(--error-soft)) !important; }
+.bg-red-500\/10                  { background-color: color-mix(in srgb, var(--error) 10%, transparent) !important; }
+.bg-red-500\/20                  { background-color: color-mix(in srgb, var(--error) 20%, transparent) !important; }
+.bg-red-500\/30                  { background-color: color-mix(in srgb, var(--error) 30%, transparent) !important; }
+.bg-red-950\/20                  { background-color: color-mix(in srgb, var(--error) 8%, var(--bg-page)) !important; }
+.bg-red-950\/40                  { background-color: color-mix(in srgb, var(--error) 16%, var(--bg-page)) !important; }
+.bg-red-950                      { background-color: color-mix(in srgb, var(--error) 22%, var(--bg-page)) !important; }
+
+.border-red-100                  { border-color: color-mix(in srgb, var(--error) 22%, var(--error-soft)) !important; }
+.border-red-200                  { border-color: color-mix(in srgb, var(--error) 35%, var(--error-soft)) !important; }
+.border-red-200\/50              { border-color: color-mix(in srgb, var(--error) 25%, transparent) !important; }
+.border-red-500\/20              { border-color: color-mix(in srgb, var(--error) 20%, transparent) !important; }
+.border-red-500\/30              { border-color: color-mix(in srgb, var(--error) 30%, transparent) !important; }
+
+/* ── VIOLET / PURPLE ── */
+.text-violet-600,
+.text-violet-700                 { color: var(--primary-text) !important; }
+.text-violet-500                 { color: var(--primary) !important; }
+.bg-violet-50                    { background-color: color-mix(in srgb, var(--primary) 10%, var(--bg-surface)) !important; }
+.bg-violet-500\/10               { background-color: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+.bg-violet-500\/20               { background-color: color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+.border-violet-200               { border-color: color-mix(in srgb, var(--primary) 30%, transparent) !important; }
+.border-violet-200\/50           { border-color: color-mix(in srgb, var(--primary) 25%, transparent) !important; }
+
+/* ── PINK / ROSE / FUCHSIA / INDIGO ── */
+.text-pink-600,
+.text-pink-700                   { color: var(--primary-text) !important; }
+.text-pink-500                   { color: var(--primary) !important; }
+.bg-pink-50                      { background-color: color-mix(in srgb, var(--primary) 10%, var(--bg-surface)) !important; }
+.bg-pink-500\/10                 { background-color: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+.bg-pink-500\/20                 { background-color: color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+.border-pink-200                 { border-color: color-mix(in srgb, var(--primary) 30%, transparent) !important; }
+
+.text-rose-600,
+.text-rose-700                   { color: var(--error-text) !important; }
+.text-rose-500                   { color: var(--error) !important; }
+.bg-rose-50                      { background-color: var(--error-soft) !important; }
+.bg-rose-500\/10                 { background-color: color-mix(in srgb, var(--error) 10%, transparent) !important; }
+.bg-rose-500\/20                 { background-color: color-mix(in srgb, var(--error) 20%, transparent) !important; }
+
+.text-fuchsia-600,
+.text-fuchsia-700                { color: var(--primary-text) !important; }
+.text-fuchsia-500                { color: var(--primary) !important; }
+.bg-fuchsia-50                   { background-color: color-mix(in srgb, var(--primary) 10%, var(--bg-surface)) !important; }
+.bg-fuchsia-500\/10              { background-color: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+.bg-fuchsia-500\/20              { background-color: color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+
+.text-indigo-600,
+.text-indigo-700                 { color: var(--primary-text) !important; }
+.text-indigo-500                 { color: var(--primary) !important; }
+.bg-indigo-50                    { background-color: color-mix(in srgb, var(--primary) 10%, var(--bg-surface)) !important; }
+.bg-indigo-500\/10               { background-color: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+.bg-indigo-500\/20               { background-color: color-mix(in srgb, var(--primary) 20%, transparent) !important; }
+
+/* ── HOVER VARIANTS ── */
+.hover\:bg-slate-50:hover        { background-color: var(--bg-elevated) !important; }
+.hover\:bg-slate-50\/50:hover    { background-color: color-mix(in srgb, var(--bg-elevated) 50%, transparent) !important; }
+.hover\:bg-slate-100:hover       { background-color: var(--bg-muted) !important; }
+.hover\:bg-slate-100\/80:hover   { background-color: color-mix(in srgb, var(--bg-muted) 80%, transparent) !important; }
+.hover\:bg-slate-200:hover       { background-color: var(--border-subtle) !important; }
+.hover\:bg-slate-200\/60:hover   { background-color: color-mix(in srgb, var(--border-subtle) 60%, transparent) !important; }
+.hover\:text-slate-900:hover     { color: var(--text-primary) !important; }
+.hover\:text-slate-800:hover     { color: var(--text-primary) !important; }
+.hover\:text-slate-700:hover     { color: var(--text-primary) !important; }
+.hover\:text-slate-600:hover     { color: var(--text-secondary) !important; }
+
+.hover\:bg-amber-50:hover        { background-color: color-mix(in srgb, var(--warning) 12%, var(--warning-soft)) !important; }
+.hover\:bg-amber-100:hover       { background-color: color-mix(in srgb, var(--warning) 22%, var(--warning-soft)) !important; }
+.hover\:bg-amber-200:hover       { background-color: color-mix(in srgb, var(--warning) 35%, var(--warning-soft)) !important; }
+.hover\:bg-emerald-50:hover      { background-color: color-mix(in srgb, var(--success) 12%, var(--success-soft)) !important; }
+.hover\:bg-emerald-100:hover     { background-color: color-mix(in srgb, var(--success) 22%, var(--success-soft)) !important; }
+.hover\:bg-blue-50:hover         { background-color: color-mix(in srgb, var(--info) 12%, var(--info-soft)) !important; }
+.hover\:bg-blue-100:hover        { background-color: color-mix(in srgb, var(--info) 22%, var(--info-soft)) !important; }
+.hover\:bg-red-50:hover          { background-color: color-mix(in srgb, var(--error) 12%, var(--error-soft)) !important; }
+.hover\:bg-red-100:hover         { background-color: color-mix(in srgb, var(--error) 22%, var(--error-soft)) !important; }
+
+/* ── PLACEHOLDERS ── */
+.placeholder-slate-400::placeholder,
+.placeholder-slate-300::placeholder,
+.placeholder-slate-500::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CUSTOM UI ELEMENTS (preserved from original design)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Glassmorphism */
+.glass-panel {
+  background: color-mix(in srgb, var(--bg-surface) 75%, transparent) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+
+/* Premium card glow */
+.card-glow {
+  position: relative;
+}
+.card-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 20px 0 color-mix(in srgb, var(--primary) 18%, transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.card-glow:hover::after { opacity: 1; }
+
+/* Premium badge pulsate */
+.badge-pulse {
+  position: relative;
+}
+.badge-pulse::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: inherit;
+  border-radius: inherit;
+  z-index: -1;
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); opacity: 0.8; }
+  50%  { opacity: 0.3; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+@keyframes slide-in-right {
+  0%   { transform: translateX(120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes slide-in-left {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in-right { animation: slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-slide-in-left  { animation: slide-in-left 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes pulse-slow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.05); opacity: 0.9; }
+}
+@keyframes mascot-float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%      { transform: translateY(-7px) rotate(2deg); }
+}
+@keyframes glow-rotate {
+  0%   { transform: rotate(0deg); filter: hue-rotate(0deg); }
+  100% { transform: rotate(360deg); filter: hue-rotate(360deg); }
+}
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1.2); opacity: 1; }
+}
+
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+
+/* Premium UI/UX page transitions */
+@keyframes page-enter {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.995); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-page-enter { animation: page-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes fade-in {
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Fast Page & Component Animation Engine (< 250ms) */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-page-enter {
+  animation: page-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fast-fade-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-fast-fade {
+  animation: fast-fade-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Fast Button Tactile Feedback */
+.btn-press {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease;
+}
+.btn-press:active {
+  transform: scale(0.96);
+}
+
+/* Menu Dropdown Popup Animation (< 180ms) */
+@keyframes menu-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.menu-animate-in {
+  animation: menu-pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.card-pressable {
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+}
+.card-pressable:active { transform: scale(0.97); }
+.card-pressable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* Shimmer skeleton */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, var(--bg-elevated) 50%, var(--bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: 8px;
+}
+
+/* Leaderboard */
+.leaderboard-gold {
+  box-shadow: 0 0 28px -4px color-mix(in srgb, var(--accent-bright) 50%, transparent),
+              0 4px 16px -6px rgba(0, 0, 0, 0.12);
+}
+.leaderboard-silver {
+  box-shadow: 0 0 20px -6px color-mix(in srgb, #94a3b8 50%, transparent);
+}
+.leaderboard-bronze {
+  box-shadow: 0 0 20px -6px color-mix(in srgb, #b47832 50%, transparent);
+}
+
+@keyframes badge-appear {
+  0%   { transform: scale(0); opacity: 0; }
+  70%  { transform: scale(1.25); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.badge-appear { animation: badge-appear 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Premium input range */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--bg-muted);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+  transition: box-shadow 0.2s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* Header glass effect */
+.header-glass {
+  background: color-mix(in srgb, var(--bg-surface) 82%, transparent) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent) !important;
+  box-shadow: 0 1px 24px -4px color-mix(in srgb, var(--primary) 8%, transparent) !important;
+}
+
+/* Modal animations */
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-slide-up {
+  from { transform: translateY(24px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+.modal-animate-in    { animation: modal-backdrop-in 0.2s ease both; }
+.modal-panel-animate { animation: modal-slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   COMPONENT-LEVEL HIGH-CONTRAST FIXES
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Sidebar user card */
+.sidebar-user-card {
+  background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent) !important;
+  border-color: var(--border-subtle) !important;
+}
+.sidebar-user-card h4 { color: var(--text-primary) !important; }
+.sidebar-user-card p  { color: var(--text-secondary) !important; }
+.sidebar-user-card .membership-code { color: var(--text-muted) !important; }
+
+/* Welcome banner — Harmonized Royal Blue & Slate Site Theme */
+.welcome-banner {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f5ff 50%, #f8fafc 100%) !important;
+  border-color: rgba(37, 99, 235, 0.25) !important;
+  color: #0f172a !important;
+  box-shadow: 0 10px 30px -8px rgba(37, 99, 235, 0.12) !important;
+}
+.welcome-banner h1,
+.welcome-banner h2,
+.welcome-banner h3 { color: #0f172a !important; }
+.welcome-banner p  { color: #475569 !important; }
+.welcome-banner .banner-label { color: #2563eb !important; }
+
+.dark .welcome-banner {
+  background: linear-gradient(135deg, #091328 0%, #0f1c3f 50%, #091328 100%) !important;
+  border-color: rgba(37, 99, 235, 0.35) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.5) !important;
+}
+.dark .welcome-banner h1,
+.dark .welcome-banner h2,
+.dark .welcome-banner h3 { color: #ffffff !important; }
+.dark .welcome-banner p  { color: #cbd5e1 !important; }
+.dark .welcome-banner .banner-label { color: #60a5fa !important; }
+
+/* Executive Glass & Hover Elevation Tokens */
+.glass-card {
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--primary) 12%, transparent);
+  transform: translateY(-2px);
+}
+
+
+
+
+/* Global utility: any element with .force-light gets white text (only for known dark bgs) */
+.force-light  { color: #ffffff !important; }
+.force-dark   { color: #0f172a !important; }
+
+/* Focus visibility for keyboard nav */
+:focus-visible {
+  outline: 2px solid var(--primary) !important;
+  outline-offset: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ITEM 4: A4 PRINT SYSTEM (@media print)
+   ════════════════════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: auto;
+    margin: 8mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: "Cairo", "IBM Plex Sans Arabic", Arial, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Unconstrain all container heights & overflows so full content prints */
+  #root,
+  main,
+  div,
+  section,
+  article {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Hide all non-printable UI shell elements */
+  aside,
+  header,
+  nav,
+  button,
+  input,
+  select,
+  textarea,
+  .no-print,
+  .print\:hidden,
+  #ozy-ai-assistant-floating,
+  .welcome-banner,
+  .dob-prompt-banner,
+  .occasion-banner,
+  .sticky {
+    display: none !important;
+  }
+
+  /* Full width container for printed document */
+  #root,
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOBILE PHONE OPTIMIZATION & RESPONSIVE TOUCH ENGINE
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Prevent iOS Safari forced auto-zooming on focus when font-size < 16px */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  html, body, #root {
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Safe area padding for iPhones with home bar */
+  .safe-pb-mobile {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Horizontal Table Touch Container Utility */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+}
+
+/* Touch Action Target Helpers */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Mobile Modal Dialog Container Guard */
+.modal-responsive-wrapper {
+  max-width: 100%;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile Text Wrap Guard */
+.mobile-text-break {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+

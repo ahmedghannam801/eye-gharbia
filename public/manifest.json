@@ -1,0 +1,25 @@
+{
+  "short_name": "EYE Hub",
+  "name": "EYE Workflow Hub & Team Platform",
+  "icons": [
+    {
+      "src": "/eye-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/eye-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#1b4cd3",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "description": "منظومة إدارية متكاملة لمتابعة المهام والأداء والأعذار بكيان EYE"
+}
