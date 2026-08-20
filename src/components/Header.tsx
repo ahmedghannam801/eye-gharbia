@@ -17,151 +17,140 @@ interface HeaderProps {
 }
 
 // Map a notification to the correct view + optional targetId so clicking it
-// takes the user straight to the exact right place (disciplinary, meeting, announcement, task, profile, etc.)
 const getNotifDestination = (
   notif: SystemNotification,
   role: string
 ): { view: string; targetId?: string } => {
-  const title = notif.title || '';
-  const message = notif.message || '';
+  const normalize = (text: string) =>
+    (text || '')
+      .toLowerCase()
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .replace(/[\u064B-\u065F\u0640]/g, '');
+
+  const normTitle = normalize(notif.title);
+  const normMsg = normalize(notif.message);
+  const normType = (notif.type || '').toLowerCase();
+  const text = `${normTitle} ${normMsg}`;
   const relatedId = notif.relatedId;
 
   // 1) Disciplinary / Warnings / Notices (لفت نظر / إنذار / تنبيه)
   if (
-    title.includes('لفت نظر') ||
-    title.includes('إنذار') ||
-    title.includes('تحذير') ||
-    title.includes('تنبيه') ||
-    title.includes('Notice') ||
-    title.includes('Warning') ||
-    title.includes('Disciplinary') ||
-    message.includes('لفت نظر') ||
-    message.includes('إنذار') ||
-    message.includes('Warning')
+    text.includes('لفت نظر') ||
+    text.includes('انذار') ||
+    text.includes('تحذير') ||
+    text.includes('تنبيه') ||
+    text.includes('notice') ||
+    text.includes('warning') ||
+    text.includes('disciplinary') ||
+    (normType === 'warning' && text.includes('رسمي'))
   ) {
     return { view: 'disciplinary', targetId: relatedId };
   }
 
   // 2) Meetings (اجتماعات)
-  if (
-    title.includes('اجتماع') ||
-    title.includes('Meeting') ||
-    message.includes('اجتماع') ||
-    message.includes('Meeting')
-  ) {
+  if (text.includes('اجتماع') || text.includes('meeting') || text.includes('لقاء')) {
     return { view: 'meetings', targetId: relatedId };
   }
 
   // 3) Workshops / Academy (ورش عمل / بث مباشر / أكاديمية)
-  if (
-    title.includes('ورشة') ||
-    title.includes('Workshop') ||
-    title.includes('أكاديمية') ||
-    title.includes('Academy') ||
-    title.includes('بث مباشر') ||
-    title.includes('Live')
-  ) {
+  if (text.includes('ورشه') || text.includes('workshop') || text.includes('اكاديمي') || text.includes('academy') || text.includes('بث مباشر') || text.includes('live')) {
     return { view: 'academy', targetId: relatedId };
   }
 
   // 4) Certificates (شهادات)
-  if (title.includes('شهادة') || title.includes('Certificate') || title.startsWith('📜')) {
+  if (text.includes('شهاده') || text.includes('certificate') || notif.title?.startsWith('📜')) {
     return { view: 'certificates', targetId: relatedId };
   }
 
-  // 5) Badges & Honours (شارات / رتب)
-  if (title.includes('شارة') || title.startsWith('🏅') || title.includes('Badge')) {
-    return { view: 'profile', targetId: relatedId };
+  // 5) Excuses & Freeze Requests (الأعذار والتجميد)
+  if (text.includes('عذر') || text.includes('تجميد') || text.includes('excuse') || text.includes('freeze') || text.includes('طلب فريز')) {
+    return { view: 'excuses-freeze', targetId: relatedId };
   }
 
-  // 6) Work Plans & OKRs (خطط العمل)
-  if (title.includes('خطة عمل') || title.includes('Work Plan') || title.includes('OKR') || title.includes('هدف')) {
-    return { view: 'workplans', targetId: relatedId };
+  // 6) Rewards & Shop (متجر المكافآت)
+  if (text.includes('مكافاه') || text.includes('متجر') || text.includes('reward') || text.includes('shop') || text.includes('استبدال') || text.includes('نقاطك') || notif.title?.startsWith('🎁')) {
+    return { view: 'rewards', targetId: relatedId };
   }
 
   // 7) Ideas & Pitch Bank (بنك الأفكار والمقترحات)
-  if (title.includes('فكرة') || title.includes('مقترح') || title.includes('Idea') || title.includes('اقتراح') || title.startsWith('💬')) {
+  if (text.includes('فكره') || text.includes('مقترح') || text.includes('idea') || text.includes('اقتراح') || notif.title?.startsWith('💬')) {
     return { view: 'ideabank', targetId: relatedId };
   }
 
   // 8) Evaluations & Feedback 360 (التقييمات)
-  if (title.includes('تقييم') || title.includes('Evaluation') || title.includes('Feedback') || title.includes('360')) {
+  if (text.includes('تقييم') || text.includes('evaluation') || text.includes('feedback') || text.includes('360')) {
     return { view: 'feedback', targetId: relatedId };
   }
 
-  // 9) Leaderboard & Ranks (لوحة الصدارة)
-  if (title.includes('صدارة') || title.includes('Leaderboard') || title.includes('Rank') || title.includes('ترتيب')) {
-    return { view: 'leaderboard', targetId: relatedId };
+  // 9) Work Plans & OKRs (خطط العمل)
+  if (text.includes('خطه عمل') || text.includes('work plan') || text.includes('okr') || text.includes('هدف خطه')) {
+    return { view: 'workplans', targetId: relatedId };
   }
 
-  // 10) Rewards & Shop (متجر المكافآت)
-  if (title.includes('مكافأة') || title.includes('متجر') || title.includes('Reward') || title.includes('Shop') || title.startsWith('🎁')) {
-    return { view: 'rewards', targetId: relatedId };
-  }
-
-  // 11) Challenges & Streaks (التحديات)
-  if (title.includes('تحدي') || title.includes('Challenge') || title.includes('سلسلة') || title.startsWith('🔥')) {
+  // 10) Challenges & Streaks (التحديات)
+  if (text.includes('تحدي') || text.includes('challenge') || text.includes('سلسله') || notif.title?.startsWith('🔥')) {
     return { view: 'challenges', targetId: relatedId };
   }
 
+  // 11) Leaderboard & Ranks (لوحة الصدارة)
+  if (text.includes('صداره') || text.includes('leaderboard') || text.includes('rank') || text.includes('ترتيب')) {
+    return { view: 'leaderboard', targetId: relatedId };
+  }
+
   // 12) Memory Wall (معرض الذكريات)
-  if (title.includes('ذكريات') || title.includes('Memory') || title.startsWith('📸')) {
+  if (text.includes('ذكريات') || text.includes('memory') || notif.title?.startsWith('📸')) {
     return { view: 'memory-wall', targetId: relatedId };
   }
 
   // 13) Polls (الاستطلاعات)
-  if (title.includes('استطلاع') || title.includes('تصويت') || title.includes('Poll')) {
+  if (text.includes('استطلاع') || text.includes('تصويت') || text.includes('poll')) {
     return { view: 'polls', targetId: relatedId };
   }
 
-  // 14) Excuses & Freeze Requests (الأعذار والتجميد)
-  if (title.includes('عذر') || title.includes('تجميد') || title.includes('Excuse') || title.includes('Freeze')) {
-    return { view: 'excuses-freeze', targetId: relatedId };
-  }
-
-  // 15) Posters & Celebrations (البوسترات)
-  if (title.includes('بوستر') || title.includes('تهنئة') || title.includes('Poster')) {
+  // 14) Posters & Celebrations (البوسترات)
+  if (text.includes('بوستر') || text.includes('تهنئه') || text.includes('poster')) {
     return { view: 'poster-maker', targetId: relatedId };
   }
 
-  // 16) Weekly Trivia / Quizzes (المسابقات)
-  if (title.includes('مسابقة') || title.includes('إجابة') || title.includes('Trivia') || title.includes('Quiz') || title.startsWith('🎉')) {
+  // 15) Weekly Trivia / Quizzes (المسابقات)
+  if (text.includes('مسابقه') || text.includes('trivia') || text.includes('quiz') || notif.title?.startsWith('🎉')) {
     return { view: 'trivia', targetId: relatedId };
   }
 
-  // 17) Announcements (الإعلانات)
-  if (title.includes('Announcement') || title.includes('إعلان') || title.includes('تعميم')) {
+  // 16) Announcements (الإعلانات)
+  if (text.includes('اعلان') || text.includes('تعميم') || text.includes('announcement')) {
     return { view: 'announcements', targetId: relatedId };
   }
 
-  // 18) New registration request (admins only)
-  if (title.includes('Registration') || title.includes('تسجيل')) {
-    if (['Super Admin', 'Vice', 'Coordinator', 'Deputy Coordinator', 'HRM'].includes(role)) {
-      return { view: 'dashboard' };
+  // 17) New registration request (admins only)
+  if (text.includes('registration') || text.includes('تسجيل') || text.includes('انضمام')) {
+    if (['Super Admin', 'Vice', 'Coordinator', 'Deputy Coordinator', 'Leader', 'HRM'].includes(role)) {
+      return { view: 'settings' };
     }
     return { view: 'profile' };
   }
 
-  // 19) Account status / role changes → profile
+  // 18) Account status / role changes / profile badges → profile
   if (
-    title.includes('Account') ||
-    title.includes('حساب') ||
-    title.includes('Promoted') ||
-    title.includes('منصبك') ||
-    title.includes('ترقية')
+    text.includes('account') ||
+    text.includes('حساب') ||
+    text.includes('promoted') ||
+    text.includes('منصبك') ||
+    text.includes('ترقيه') ||
+    text.includes('شاره') ||
+    notif.title?.startsWith('🏅')
   ) {
     return { view: 'profile', targetId: relatedId };
   }
 
-  // 20) Task / submission related → tasks with focus
+  // 19) Task / submission related → tasks with focus
   if (
-    title.includes('Task') ||
-    title.includes('مهمة') ||
-    title.includes('Submission') ||
-    title.includes('تسليم') ||
-    message.includes('مهمة') ||
-    message.includes('تسليم') ||
-    message.includes('task')
+    text.includes('task') ||
+    text.includes('مهمه') ||
+    text.includes('submission') ||
+    text.includes('تسليم')
   ) {
     return { view: 'tasks', targetId: relatedId };
   }
