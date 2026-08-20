@@ -3459,10 +3459,10 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
 
       {/* Official Disciplinary Document Viewing Modal */}
       {viewingDisciplinary && (
-        <div className="eye-fixed-modal bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in" style={{ zIndex: 99999 }}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl space-y-6 text-slate-900 dark:text-slate-100 max-h-[92vh] overflow-y-auto" dir="rtl">
+        <div className="eye-fixed-modal bg-slate-950/85 backdrop-blur-md p-3 sm:p-6 animate-fade-in" style={{ zIndex: 99999 }}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl p-5 sm:p-7 shadow-2xl space-y-6 text-slate-900 dark:text-slate-100 max-h-[94vh] overflow-y-auto" dir="rtl">
             {/* Top Toolbar */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5 no-print">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-red-500" />
                 <h3 className="text-sm sm:text-base font-black">
@@ -3472,11 +3472,31 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => {
+                    const isNotice = viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice';
+                    fillAndDownloadDocxTemplate(isNotice ? 'lft_nazar' : 'inzar', {
+                      memberName: viewingDisciplinary.memberName,
+                      committeeName: viewingDisciplinary.committee || 'عام',
+                      governorate: viewingDisciplinary.governorate || 'الغربية',
+                      noticeNumber: viewingDisciplinary.noticeNumber || '01',
+                      meetingDay: viewingDisciplinary.meetingDay || 'الاجتماع الدوري',
+                      meetingDate: viewingDisciplinary.meetingDate || new Date(viewingDisciplinary.issuedAt).toLocaleDateString('ar-EG'),
+                      hrManager: viewingDisciplinary.issuedByName || 'أحمد إبراهيم',
+                      coordinator: viewingDisciplinary.coordinator || 'محمود ربيع',
+                    });
+                  }}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>تحميل Word (.docx)</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handlePrintDisciplinaryDoc(viewingDisciplinary)}
                   className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>طباعة المستند (PDF)</span>
+                  <span>طباعة (PDF)</span>
                 </button>
                 <button
                   type="button"
@@ -3488,94 +3508,98 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
               </div>
             </div>
 
-            {/* Document Content View */}
-            <div className="border-2 border-slate-900 dark:border-slate-700 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-950/50 space-y-6 text-slate-900 dark:text-slate-100">
-              {/* Header */}
-              <div className="flex justify-between items-start border-b-2 border-slate-300 dark:border-slate-800 pb-4 text-xs font-bold">
+            {/* Official Document Paper View (Exact TemplatesHub Replica) */}
+            <div className="bg-white text-black p-6 sm:p-10 rounded-2xl border-4 border-slate-800 shadow-inner relative overflow-hidden font-sans space-y-6 select-none" dir="rtl" style={{ color: '#000000', backgroundColor: '#ffffff' }}>
+              {/* Background Watermark */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+                <img src="/eye-logo.png" alt="watermark" className="w-72 h-72 object-contain" />
+              </div>
+
+              {/* Document Header */}
+              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 text-xs font-bold relative z-10 text-black">
                 <div className="space-y-0.5 text-right">
-                  <div className="font-black text-blue-900 dark:text-blue-400 text-sm">جمهورية مصر العربية</div>
-                  <div>وزارة الشباب والرياضة</div>
-                  <div className="text-emerald-700 dark:text-emerald-400">الإدارة المركزية لتنمية الشباب</div>
+                  <div className="font-black text-blue-900 text-sm">جمهورية مصر العربية</div>
+                  <div className="text-slate-800">وزارة الشباب والرياضة</div>
+                  <div className="text-emerald-700 font-bold">الإدارة المركزية لتنمية الشباب</div>
                 </div>
-                <div className="text-center space-y-0.5">
-                  <div className="font-black text-blue-900 dark:text-blue-400 text-base">كيان EYE الشبابي</div>
-                  <div className="text-slate-500">محافظة {viewingDisciplinary.governorate || 'الغربية'}</div>
+
+                <div className="text-center space-y-0.5 flex flex-col items-center">
+                  <img src="/eye-logo.png" alt="EYE" className="w-12 h-12 object-contain mb-1" />
+                  <div className="font-black text-blue-900 text-base">كيان EYE الشبابي</div>
+                  <div className="text-slate-700 font-bold">محافظة {viewingDisciplinary.governorate || 'الغربية'}</div>
                 </div>
+
                 <div className="text-left space-y-0.5">
-                  <div className="font-bold text-slate-600 dark:text-slate-400">مستند إداري رسمي</div>
-                  <div className="font-mono text-slate-500">كود: {viewingDisciplinary.regulationCode || 'LN-01'}</div>
+                  <div className="font-black text-slate-800">مستند إداري معتمد</div>
+                  <div className="font-mono text-slate-600 font-bold">كود: {viewingDisciplinary.regulationCode || (viewingDisciplinary.type === 'inzar' ? 'WR-01' : 'LN-01')}</div>
+                  <div className="text-[10px] text-slate-500">{new Date(viewingDisciplinary.issuedAt).toLocaleDateString('ar-EG')}</div>
                 </div>
               </div>
 
-              {/* Title Badge */}
-              <div className="text-center">
-                <span className={`inline-block px-8 py-2 rounded-full text-lg font-black border-2 ${
-                  viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice'
-                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border-amber-500'
-                    : 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-200 border-red-500'
-                }`}>
+              {/* Body Content */}
+              <div className="relative z-10 space-y-5 text-right text-black">
+                <h2 className="text-center font-black text-3xl text-rose-600 underline underline-offset-8">
                   {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'لفت نظر' : 'إنذار'}
-                </span>
-              </div>
+                </h2>
 
-              {/* Warning Alert Box */}
-              <div className="p-4 rounded-xl bg-red-100/70 dark:bg-red-950/60 border border-dashed border-red-500 text-center space-y-1">
-                <div className="font-black text-red-700 dark:text-red-300 text-sm flex items-center justify-center gap-1.5">
-                  <span>🛑</span>
-                  <span>تنبيه تنظيمي</span>
-                </div>
-                <p className="text-xs font-bold text-red-800 dark:text-red-200 leading-relaxed">
-                  نود إعلامكم أنه سيتم إنهاء المشاركة بالكيان بشكل رسمي في حال تلقي ثلاثة إنذارات، نرجو الالتزام بالتوجيهات لضمان استمرار مشاركتكم الفعالة.
+                <p className="font-bold text-sm sm:text-base leading-relaxed text-black pt-2">
+                  بعد الاطلاع على اللائحة التنفيذية والقوانين المنظمة للكيان الخاصة بحقوق وواجبات الأعضاء، قررنا نحن مسئولو لجنة الموارد البشرية بمحافظة: <span className="underline font-black text-slate-900">{viewingDisciplinary.governorate || 'الغربية'}</span>
                 </p>
-              </div>
 
-              {/* Data Table */}
-              <div className="border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden text-xs">
-                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">اسم العضو:</div>
-                  <div className="col-span-2 p-3 font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900">{viewingDisciplinary.memberName}</div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">اللجنة / القسم:</div>
-                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.committee || 'عام'}</div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">المحافظة:</div>
-                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.governorate || 'الغربية'}</div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">رقم المعاملة:</div>
-                  <div className="col-span-2 p-3 font-mono font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.noticeNumber || '01'}</div>
-                </div>
-                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">يوم الاجتماع:</div>
-                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.meetingDay || 'الاجتماع الدوري'}</div>
-                </div>
-                <div className="grid grid-cols-3">
-                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">تاريخ الاجتماع:</div>
-                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.meetingDate || new Date(viewingDisciplinary.issuedAt).toLocaleDateString('ar-EG')}</div>
-                </div>
-              </div>
+                <p className="font-black text-sm sm:text-base text-black">
+                  توجيه {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'لفت نظر' : 'الإنذار'} رقم ( <span className="font-black text-rose-600 font-mono text-lg">{viewingDisciplinary.noticeNumber || '01'}</span> ) .
+                </p>
 
-              {/* Signatures */}
-              <div className="flex justify-between items-center pt-8 border-t border-slate-200 dark:border-slate-800 text-center">
-                <div className="space-y-1">
-                  <div className="text-[11px] font-bold text-slate-500">مسئول لجنة الموارد البشرية</div>
-                  <div className="text-sm font-black text-slate-900 dark:text-white border-b-2 border-slate-300 dark:border-slate-700 pb-1">
-                    {viewingDisciplinary.issuedByName || 'أحمد إبراهيم'}
+                <div className="flex flex-wrap justify-between font-black text-sm sm:text-base my-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-black">
+                  <div>للعضو: <span className="text-rose-700 font-black px-2">{viewingDisciplinary.memberName}</span></div>
+                  <div>لجنة: <span className="text-rose-700 font-black px-2">{viewingDisciplinary.committee || 'عام'}</span></div>
+                </div>
+
+                <p className="font-bold text-sm sm:text-base leading-relaxed text-black">
+                  {viewingDisciplinary.reason && !viewingDisciplinary.reason.includes('اجتماع')
+                    ? viewingDisciplinary.reason
+                    : `وذلك لعدم حضور اجتماع يوم ( ${viewingDisciplinary.meetingDay || 'الاجتماع الدوري'} ) ، الموافق ( ${viewingDisciplinary.meetingDate || new Date(viewingDisciplinary.issuedAt).toLocaleDateString('ar-EG')} ) دون التبليغ بعذر عدم الحضور لمن يهمه الأمر.`}
+                </p>
+
+                {/* Regulatory Alert Banner */}
+                <div className="border-2 border-dashed border-rose-500 bg-rose-50/90 p-4 rounded-xl text-center text-rose-800 space-y-1.5 my-4">
+                  <div className="font-black flex items-center justify-center gap-1.5 text-sm text-rose-600">
+                    <span className="text-base">🛑</span>
+                    <span>تنبيه تنظيمي</span>
+                  </div>
+                  <p className="font-bold text-xs sm:text-sm leading-relaxed text-rose-900">
+                    {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice'
+                      ? 'يرجى العلم أن تلقي عدد 2 لفت نظر يُعتبر معادلاً للحصول على إنذار واحد، نرجو الالتزام بالإرشادات المحددة لتجنب أي إجراءات قد تؤثر على استمرار مشاركتكم.'
+                      : 'نود إعلامكم أنه سيتم إنهاء المشاركة بالكيان بشكل رسمي في حال تلقي ثلاثة إنذارات، نرجو الالتزام بالتوجيهات لضمان استمرار مشاركتكم الفعالة وخدمة وطننا.'}
+                  </p>
+                </div>
+
+                {/* Signatures */}
+                <div className="pt-8 flex justify-between text-center font-bold text-xs sm:text-sm mt-6 border-t-2 border-slate-300 text-black">
+                  <div className="space-y-3">
+                    <div className="font-black text-slate-700">مسؤول لجنة الموارد البشرية</div>
+                    <div className="font-black text-base text-slate-900 border-b border-dashed border-slate-400 pb-1">
+                      أ. {viewingDisciplinary.issuedByName || 'أحمد إبراهيم'}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="font-black text-slate-700">منسق عام المحافظة</div>
+                    <div className="font-black text-base text-slate-900 border-b border-dashed border-slate-400 pb-1">
+                      أ. {viewingDisciplinary.coordinator || 'محمود ربيع'}
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <div className="text-[11px] font-bold text-slate-500">منسق عام المحافظة</div>
-                  <div className="text-sm font-black text-slate-900 dark:text-white border-b-2 border-slate-300 dark:border-slate-700 pb-1">
-                    {viewingDisciplinary.coordinator || 'منسق المحافظة'}
-                  </div>
+
+                {/* Footer Hashtag */}
+                <div className="text-center font-black text-sky-600 text-xs border-t border-slate-200 pt-3">
+                  #معا_نحو_مستقبل_افضل
                 </div>
               </div>
             </div>
 
             {/* Bottom Actions */}
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-end gap-3 pt-2 no-print">
               <button
                 type="button"
                 onClick={() => setViewingDisciplinary(null)}
@@ -3585,11 +3609,31 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  const isNotice = viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice';
+                  fillAndDownloadDocxTemplate(isNotice ? 'lft_nazar' : 'inzar', {
+                    memberName: viewingDisciplinary.memberName,
+                    committeeName: viewingDisciplinary.committee || 'عام',
+                    governorate: viewingDisciplinary.governorate || 'الغربية',
+                    noticeNumber: viewingDisciplinary.noticeNumber || '01',
+                    meetingDay: viewingDisciplinary.meetingDay || 'الاجتماع الدوري',
+                    meetingDate: viewingDisciplinary.meetingDate || new Date(viewingDisciplinary.issuedAt).toLocaleDateString('ar-EG'),
+                    hrManager: viewingDisciplinary.issuedByName || 'أحمد إبراهيم',
+                    coordinator: viewingDisciplinary.coordinator || 'محمود ربيع',
+                  });
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>تنزيل ملف وورد الأصلي (.docx)</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => handlePrintDisciplinaryDoc(viewingDisciplinary)}
                 className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
               >
                 <Printer className="w-4 h-4" />
-                <span>طباعة المستند الرسمي</span>
+                <span>طباعة المستند الرسمي (PDF)</span>
               </button>
             </div>
           </div>
