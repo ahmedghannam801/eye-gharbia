@@ -3460,21 +3460,21 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
 
       {/* Official Disciplinary Document Viewing Modal - TRUE 100% FULLSCREEN VIEWER */}
       {viewingDisciplinary && (
-        <div className="fixed inset-0 z-[999999] bg-slate-950 flex flex-col w-screen h-screen overflow-hidden animate-fade-in" style={{ zIndex: 999999 }} dir="rtl">
+        <div className="fixed inset-0 z-[999999] bg-slate-100 dark:bg-slate-950 flex flex-col w-screen h-screen overflow-hidden animate-fade-in" style={{ zIndex: 999999 }} dir="rtl">
           {/* Top Fullscreen Header Toolbar */}
-          <div className="w-full bg-slate-900 border-b border-slate-800 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-xl shrink-0 text-white no-print">
+          <div className="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-md shrink-0 text-slate-900 dark:text-white no-print">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
+              <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 flex items-center justify-center text-red-600 dark:text-red-400">
                 <ShieldAlert className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
-                  <span>{viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'المستند الرسمي — لفت نظر' : 'المستند الرسمي — إنذار معتمد'}</span>
-                  <span className="text-xs font-mono font-bold text-red-400 bg-red-950/60 px-2.5 py-0.5 rounded-full border border-red-800">
+                <h3 className="text-sm sm:text-base font-black flex items-center gap-2">
+                  <span>{viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'المستند الرسمي — لفت نظر 📜' : 'المستند الرسمي — إنذار معتمد 🔴'}</span>
+                  <span className="text-xs font-mono font-bold text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/60 px-2.5 py-0.5 rounded-full border border-red-200 dark:border-red-800">
                     {viewingDisciplinary.noticeNumber || '01'}
                   </span>
                 </h3>
-                <p className="text-[11px] text-slate-400 font-medium">العضو: <span className="text-slate-200 font-bold">{viewingDisciplinary.memberName}</span> • {viewingDisciplinary.committee || 'عام'}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">العضو: <span className="text-slate-900 dark:text-slate-200 font-bold">{viewingDisciplinary.memberName}</span> • {viewingDisciplinary.committee || 'عام'}</p>
               </div>
             </div>
 
@@ -3494,7 +3494,7 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
                     coordinator: viewingDisciplinary.coordinator || 'محمود ربيع',
                   });
                 }}
-                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>تحميل Word (.docx)</span>
@@ -3502,7 +3502,7 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
               <button
                 type="button"
                 onClick={() => handlePrintDisciplinaryDoc(viewingDisciplinary)}
-                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>طباعة (PDF)</span>
@@ -3510,7 +3510,7 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
               <button
                 type="button"
                 onClick={() => setViewingDisciplinary(null)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1 text-xs font-bold"
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-red-500 text-slate-700 dark:text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1 text-xs font-bold border border-slate-200 dark:border-slate-700"
                 title="إغلاق الشاشة"
               >
                 <X className="w-5 h-5" />
@@ -3520,9 +3520,9 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
           </div>
 
           {/* Full Screen Scrollable Canvas */}
-          <div className="flex-1 w-full overflow-y-auto p-3 sm:p-8 flex justify-center items-start bg-slate-950">
+          <div className="flex-1 w-full overflow-y-auto p-4 sm:p-10 flex justify-center items-start bg-slate-100 dark:bg-slate-900">
             {/* Official Document Paper View (Exact Vertical A4 Portrait Format) */}
-            <div className="bg-white text-black p-8 sm:p-14 rounded-2xl border-4 border-slate-900 shadow-2xl relative overflow-hidden font-sans select-none w-full max-w-[820px] min-h-[1100px] flex flex-col justify-between my-2" dir="rtl" style={{ color: '#000000', backgroundColor: '#ffffff' }}>
+            <div className="bg-white text-slate-950 p-8 sm:p-14 rounded-2xl border-2 border-slate-300 shadow-2xl relative overflow-hidden font-sans select-none w-full max-w-[820px] min-h-[1100px] flex flex-col justify-between my-2" dir="rtl" style={{ color: '#090d16', backgroundColor: '#ffffff' }}>
               {/* Background Watermark */}
               <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
                 <img src="/eye-logo.png" alt="watermark" className="w-80 h-80 object-contain" />
