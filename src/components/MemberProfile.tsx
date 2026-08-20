@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, calculateMemberAVG } from '../db/localDb';
 import { supabase, getPermanentStorageUrl } from '../lib/supabaseClient';
 import { UserProfile, ActivityLog, IssuedCertificate, CertificateType, MemberEvaluation, DisciplinaryRecord, getUserRoleTitle } from '../types';
-import { Phone, Award, Activity, Calendar, User, Camera, Loader2, ZoomIn, ZoomOut, RotateCw, X, Download, Eye, Star, Crown, Target, Trash2, ShieldCheck, Lock, Sliders, MessageSquare, Sparkles, CheckCircle2, ArrowLeft, Linkedin, Facebook, Cake, Globe, Printer, ShieldAlert, FileText, AlertTriangle } from 'lucide-react';
+import { Phone, Award, Activity, Calendar, User, Camera, Loader2, ZoomIn, ZoomOut, RotateCw, X, Download, Eye, Star, Crown, Target, Trash2, ShieldCheck, Lock, Sliders, MessageSquare, Sparkles, CheckCircle2, ArrowLeft, Linkedin, Facebook, Cake, Globe, Printer, ShieldAlert, FileText, AlertTriangle, Maximize2, Minimize2 } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
 import { downloadCertificate, printCertificate, getCommitteeSignatories } from '../lib/certificateGenerator';
 import { printDedicatedOfficialDocument } from '../lib/dedicatedPrint';
@@ -542,6 +542,7 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
     return all.filter(r => r.memberId === activeUser.id || (r.memberName && r.memberName.trim() === activeUser.fullName.trim()));
   });
   const [viewingDisciplinary, setViewingDisciplinary] = useState<DisciplinaryRecord | null>(null);
+  const [isDisciplinaryFullScreen, setIsDisciplinaryFullScreen] = useState(false);
 
   useEffect(() => {
     const loadDisc = () => {
@@ -3457,19 +3458,30 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
         </div>
       </div>
 
-      {/* Official Disciplinary Document Viewing Modal */}
+      {/* Official Disciplinary Document Viewing Modal - FULLSCREEN EXPERIENCE */}
       {viewingDisciplinary && (
-        <div className="eye-fixed-modal bg-slate-950/85 backdrop-blur-md p-3 sm:p-6 animate-fade-in" style={{ zIndex: 99999 }}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl p-5 sm:p-7 shadow-2xl space-y-6 text-slate-900 dark:text-slate-100 max-h-[94vh] overflow-y-auto" dir="rtl">
+        <div className="fixed inset-0 z-[999999] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-start p-2 sm:p-4 md:p-6 overflow-y-auto w-full h-full animate-fade-in" style={{ zIndex: 999999 }}>
+          <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 sm:p-7 space-y-6 text-slate-900 dark:text-slate-100 my-auto transition-all duration-300 ${
+            isDisciplinaryFullScreen ? 'w-full max-w-6xl min-h-[96vh]' : 'w-full max-w-3xl max-h-[94vh] overflow-y-auto'
+          }`} dir="rtl">
             {/* Top Toolbar */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5 no-print">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-20 no-print">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-red-500" />
                 <h3 className="text-sm sm:text-base font-black">
-                  {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'معاينة لفت نظر رسمي 📜' : 'معاينة إنذار رسمي 🔴'}
+                  {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'المستند الرسمي — لفت نظر 📜' : 'المستند الرسمي — إنذار معتمد 🔴'}
                 </h3>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDisciplinaryFullScreen(!isDisciplinaryFullScreen)}
+                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer hidden sm:flex items-center gap-1 text-xs font-bold"
+                  title={isDisciplinaryFullScreen ? 'تصغير الحجم' : 'ملء الشاشة بالكامل'}
+                >
+                  {isDisciplinaryFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  <span>{isDisciplinaryFullScreen ? 'شاشة عادية' : 'شاشة كاملة'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -3488,7 +3500,7 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>تحميل Word (.docx)</span>
+                  <span>Word (.docx)</span>
                 </button>
                 <button
                   type="button"
@@ -3501,7 +3513,7 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewingDisciplinary(null)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, DisciplinaryRecord } from '../types';
 import { db } from '../db/localDb';
 import { useLanguage } from '../lib/LanguageContext';
-import { ShieldAlert, AlertTriangle, Plus, Trash2, CheckCircle2, User, FileText, Calendar, Filter, X, Printer, Download, Eye } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, Plus, Trash2, CheckCircle2, User, FileText, Calendar, Filter, X, Printer, Download, Eye, Maximize2, Minimize2 } from 'lucide-react';
 import { fillAndDownloadDocxTemplate } from '../lib/docxFiller';
 
 interface DisciplinaryRecordsProps {
@@ -18,6 +18,7 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
   const [records, setRecords] = useState<DisciplinaryRecord[]>(() => db.getDisciplinaryRecords(currentUser));
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [viewingRecord, setViewingRecord] = useState<DisciplinaryRecord | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Form states
   const [targetMemberId, setTargetMemberId] = useState('');
@@ -300,19 +301,30 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
         )}
       </div>
 
-      {/* VIEW OFFICIAL A4 DOCUMENT MODAL */}
+      {/* VIEW OFFICIAL A4 DOCUMENT MODAL - FULLSCREEN EXPERIENCE */}
       {viewingRecord && (
-        <div className="eye-fixed-modal bg-slate-950/85 backdrop-blur-md p-3 sm:p-6 animate-fade-in" style={{ zIndex: 99999 }}>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl p-5 sm:p-7 shadow-2xl space-y-6 text-slate-900 dark:text-slate-100 max-h-[94vh] overflow-y-auto" dir="rtl">
+        <div className="fixed inset-0 z-[999999] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-start p-2 sm:p-4 md:p-6 overflow-y-auto w-full h-full animate-fade-in" style={{ zIndex: 999999 }}>
+          <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 sm:p-7 space-y-6 text-slate-900 dark:text-slate-100 my-auto transition-all duration-300 ${
+            isFullScreen ? 'w-full max-w-6xl min-h-[96vh]' : 'w-full max-w-3xl max-h-[94vh] overflow-y-auto'
+          }`} dir="rtl">
             {/* Top Toolbar */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-20">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-red-500" />
                 <h3 className="text-sm sm:text-base font-black">
-                  {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'معاينة لفت نظر رسمي 📜' : 'معاينة إنذار رسمي 🔴'}
+                  {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'المستند الرسمي — لفت نظر 📜' : 'المستند الرسمي — إنذار معتمد 🔴'}
                 </h3>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFullScreen(!isFullScreen)}
+                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer hidden sm:flex items-center gap-1 text-xs font-bold"
+                  title={isFullScreen ? 'تصغير الحجم' : 'ملء الشاشة بالكامل'}
+                >
+                  {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  <span>{isFullScreen ? 'شاشة عادية' : 'شاشة كاملة'}</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -331,7 +343,7 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>تحميل Word (.docx)</span>
+                  <span>Word (.docx)</span>
                 </button>
                 <button
                   type="button"
