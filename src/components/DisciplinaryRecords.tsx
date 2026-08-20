@@ -301,70 +301,71 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
         )}
       </div>
 
-      {/* VIEW OFFICIAL A4 DOCUMENT MODAL - FULLSCREEN EXPERIENCE */}
+      {/* VIEW OFFICIAL A4 DOCUMENT MODAL - TRUE 100% FULLSCREEN VIEWER */}
       {viewingRecord && (
-        <div className="fixed inset-0 z-[999999] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-start p-2 sm:p-4 md:p-6 overflow-y-auto w-full h-full animate-fade-in" style={{ zIndex: 999999 }}>
-          <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-4 sm:p-7 space-y-6 text-slate-900 dark:text-slate-100 my-auto transition-all duration-300 ${
-            isFullScreen ? 'w-full max-w-6xl min-h-[96vh]' : 'w-full max-w-3xl max-h-[94vh] overflow-y-auto'
-          }`} dir="rtl">
-            {/* Top Toolbar */}
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5 sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-20">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
-                <h3 className="text-sm sm:text-base font-black">
-                  {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'المستند الرسمي — لفت نظر 📜' : 'المستند الرسمي — إنذار معتمد 🔴'}
-                </h3>
+        <div className="fixed inset-0 z-[999999] bg-slate-950 flex flex-col w-screen h-screen overflow-hidden animate-fade-in" style={{ zIndex: 999999 }} dir="rtl">
+          {/* Top Fullscreen Header Toolbar */}
+          <div className="w-full bg-slate-900 border-b border-slate-800 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-xl shrink-0 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400">
+                <ShieldAlert className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsFullScreen(!isFullScreen)}
-                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer hidden sm:flex items-center gap-1 text-xs font-bold"
-                  title={isFullScreen ? 'تصغير الحجم' : 'ملء الشاشة بالكامل'}
-                >
-                  {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                  <span>{isFullScreen ? 'شاشة عادية' : 'شاشة كاملة'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const isNotice = viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice';
-                    fillAndDownloadDocxTemplate(isNotice ? 'lft_nazar' : 'inzar', {
-                      memberName: viewingRecord.memberName,
-                      committeeName: viewingRecord.committee || 'عام',
-                      governorate: viewingRecord.governorate || 'الغربية',
-                      noticeNumber: viewingRecord.noticeNumber || '01',
-                      meetingDay: viewingRecord.meetingDay || 'الاجتماع الدوري',
-                      meetingDate: viewingRecord.meetingDate || new Date(viewingRecord.issuedAt).toLocaleDateString('ar-EG'),
-                      hrManager: viewingRecord.issuedByName || 'أحمد إبراهيم',
-                      coordinator: viewingRecord.coordinator || 'محمود ربيع',
-                    });
-                  }}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Word (.docx)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintDoc(viewingRecord)}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>طباعة (PDF)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewingRecord(null)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                  <span>{viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'المستند الرسمي — لفت نظر' : 'المستند الرسمي — إنذار معتمد'}</span>
+                  <span className="text-xs font-mono font-bold text-red-400 bg-red-950/60 px-2.5 py-0.5 rounded-full border border-red-800">
+                    {viewingRecord.noticeNumber || '01'}
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400 font-medium">العضو: <span className="text-slate-200 font-bold">{viewingRecord.memberName}</span> • {viewingRecord.committee || 'عام'}</p>
               </div>
             </div>
 
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const isNotice = viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice';
+                  fillAndDownloadDocxTemplate(isNotice ? 'lft_nazar' : 'inzar', {
+                    memberName: viewingRecord.memberName,
+                    committeeName: viewingRecord.committee || 'عام',
+                    governorate: viewingRecord.governorate || 'الغربية',
+                    noticeNumber: viewingRecord.noticeNumber || '01',
+                    meetingDay: viewingRecord.meetingDay || 'الاجتماع الدوري',
+                    meetingDate: viewingRecord.meetingDate || new Date(viewingRecord.issuedAt).toLocaleDateString('ar-EG'),
+                    hrManager: viewingRecord.issuedByName || 'أحمد إبراهيم',
+                    coordinator: viewingRecord.coordinator || 'محمود ربيع',
+                  });
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>تحميل Word (.docx)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrintDoc(viewingRecord)}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة (PDF)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingRecord(null)}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1 text-xs font-bold"
+                title="إغلاق الشاشة"
+              >
+                <X className="w-5 h-5" />
+                <span className="hidden sm:inline">إغلاق</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Full Screen Scrollable Canvas */}
+          <div className="flex-1 w-full overflow-y-auto p-3 sm:p-8 flex justify-center items-start bg-slate-950">
             {/* Official Document Paper View (Exact Vertical A4 Portrait Format) */}
-            <div className="bg-white text-black p-8 sm:p-12 rounded-2xl border-4 border-slate-900 shadow-2xl relative overflow-hidden font-sans select-none w-full max-w-[780px] min-h-[1050px] flex flex-col justify-between mx-auto my-3" dir="rtl" style={{ color: '#000000', backgroundColor: '#ffffff' }}>
+            <div className="bg-white text-black p-8 sm:p-14 rounded-2xl border-4 border-slate-900 shadow-2xl relative overflow-hidden font-sans select-none w-full max-w-[820px] min-h-[1100px] flex flex-col justify-between my-2" dir="rtl" style={{ color: '#000000', backgroundColor: '#ffffff' }}>
               {/* Background Watermark */}
               <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
                 <img src="/eye-logo.png" alt="watermark" className="w-80 h-80 object-contain" />
@@ -452,45 +453,6 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
                   #معا_نحو_مستقبل_افضل
                 </div>
               </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setViewingRecord(null)}
-                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
-              >
-                إغلاق
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const isNotice = viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice';
-                  fillAndDownloadDocxTemplate(isNotice ? 'lft_nazar' : 'inzar', {
-                    memberName: viewingRecord.memberName,
-                    committeeName: viewingRecord.committee || 'عام',
-                    governorate: viewingRecord.governorate || 'الغربية',
-                    noticeNumber: viewingRecord.noticeNumber || '01',
-                    meetingDay: viewingRecord.meetingDay || 'الاجتماع الدوري',
-                    meetingDate: viewingRecord.meetingDate || new Date(viewingRecord.issuedAt).toLocaleDateString('ar-EG'),
-                    hrManager: viewingRecord.issuedByName || 'أحمد إبراهيم',
-                    coordinator: viewingRecord.coordinator || 'محمود ربيع',
-                  });
-                }}
-                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-xl text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>تنزيل ملف وورد الأصلي (.docx)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePrintDoc(viewingRecord)}
-                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
-              >
-                <Printer className="w-4 h-4" />
-                <span>طباعة المستند الرسمي (PDF)</span>
-              </button>
             </div>
           </div>
         </div>
