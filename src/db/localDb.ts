@@ -4080,15 +4080,138 @@ class SupabaseDatabase {
 
 
   // ═══════════════════════════════════════════════════
-  // REWARDS SHOP
+  // REWARDS SHOP & POINTS ACCUMULATION ENGINE
   // ═══════════════════════════════════════════════════
   getRewards(): RewardItem[] {
-    return this._ls<RewardItem>('eye_rewards');
+    const items = this._ls<RewardItem>('eye_rewards');
+    if (items.length === 0) {
+      const defaultRewards: RewardItem[] = [
+        {
+          id: 'reward-cert-gold',
+          title: 'شهادة شكر وتقدير ذهبية معتمدة 🌟',
+          description: 'شهادة شكر وتقدير إدارية رسمية معتمدة من إدارة الكيان وموثقة برقم قيد وسجل رسمي.',
+          costPoints: 150,
+          stock: 20,
+        },
+        {
+          id: 'reward-badge-vip',
+          title: 'وسام التميز القيادي VIP 👑',
+          description: 'شعار العضو المتميز يظهر بجانب اسمك في لوحة الشرف وملفك الشخصي طوال الشهر.',
+          costPoints: 200,
+          stock: 15,
+        },
+        {
+          id: 'reward-mentorship',
+          title: 'جلسة استشارية وتوجيه مهني فردي 🚀',
+          description: 'جلسة تدريبية وتوجيه مهني فردي (1-on-1) مع أحد قادة ومستشاري الكيان لتطوير مسارك.',
+          costPoints: 250,
+          stock: 8,
+        },
+        {
+          id: 'reward-spotlight',
+          title: 'تسليط الضوء ونشر إنجازك على منصات الكيان 📢',
+          description: 'بوستر تقديري خاص ونشر إنجازك في صفحة الكيان الرسمية ومجموعات التواصل.',
+          costPoints: 180,
+          stock: 12,
+        },
+        {
+          id: 'reward-idea-feature',
+          title: 'تبني فكرة تطوعية وتمويل تنفيذها 💡',
+          description: 'اعتماد فكرتك المقترحة في بنك الأفكار كخطة عمل رئيسية وتوفير الدعم لتنفيذها.',
+          costPoints: 300,
+          stock: 5,
+        },
+      ];
+      this._lsSave('eye_rewards', defaultRewards);
+      return defaultRewards;
+    }
+    return items;
+  }
+
+  getMemberPointsBreakdown(userId: string): {
+    earnedTasks: number;
+    earnedAttendance: number;
+    bonusPoints: number;
+    triviaPoints: number;
+    ideasPoints: number;
+    totalEarned: number;
+    spentPurchases: number;
+    availablePoints: number;
+  } {
+    // 1. Task Submissions
+    const submissions = this.getSubmissions().filter(s => s.memberId === userId || (s as any).userId === userId);
+    const tasks = this.getTasks();
+    let earnedTasks = 0;
+    for (const sub of submissions) {
+      const t = tasks.find(x => x.id === sub.taskId);
+      if (sub.status === 'Accepted' || (sub.status as any) === 'مقبول' || (sub.status as any) === 'مقابولة') {
+        earnedTasks += t && new Date(sub.submittedAt) <= new Date(t.deadline) ? 100 : 60;
+        const grade = (sub as any).grade;
+        if (grade !== undefined && grade >= 90) earnedTasks += 20;
+        else if (grade !== undefined && grade >= 75) earnedTasks += 10;
+      } else if (sub.status === 'Rejected' || (sub.status as any) === 'مرفوض') {
+        earnedTasks += 10;
+      } else if (sub.status === 'Pending' || (sub.status as any) === 'قيد المراجعة') {
+        earnedTasks += 5;
+      }
+    }
+
+    // 2. Attendance Points (Meetings & Live Workshops)
+    const attendance = this.getAttendance().filter(a => a.memberId === userId || (a as any).userId === userId);
+    const meetings = this.getMeetings();
+    let earnedAttendance = 0;
+    for (const att of attendance) {
+      const m = meetings.find(x => x.id === att.meetingId);
+      const isOnline = m?.type === 'online' || m?.location?.toLowerCase().includes('online') || m?.location?.includes('زووم') || m?.location?.includes('zoom');
+      earnedAttendance += isOnline ? 5 : 10;
+    }
+
+    // 3. User Bonus Points & Base Profile Points
+    const user = this.getUserById(userId);
+    const bonusPoints = (user?.bonusPoints || 0) + (user?.points || 0);
+
+    // 4. Trivia, Quizzes & Challenges
+    const quizzes = this._ls<any>('eye_weekly_quizzes');
+    let triviaPoints = 0;
+    if (Array.isArray(quizzes)) {
+      for (const q of quizzes) {
+        if (Array.isArray(q.participants) && q.participants.some((p: any) => p.userId === userId || p.memberId === userId)) {
+          triviaPoints += q.points || 15;
+        }
+      }
+    }
+
+    // 5. Volunteer Ideas
+    const ideas = this.getVolunteerIdeas().filter(i => i.authorId === userId || (i as any).userId === userId);
+    const ideasPoints = ideas.length * 10;
+
+    const totalEarned = earnedTasks + earnedAttendance + bonusPoints + triviaPoints + ideasPoints;
+
+    // 6. Deduct purchases that are Approved or Pending (Active hold)
+    const purchases = this.getPurchases().filter(p => (p.memberId === userId || (p as any).userId === userId) && p.status !== 'Rejected');
+    const spentPurchases = purchases.reduce((acc, p) => acc + (p.costPoints || 0), 0);
+
+    const availablePoints = Math.max(0, totalEarned - spentPurchases);
+
+    return {
+      earnedTasks,
+      earnedAttendance,
+      bonusPoints,
+      triviaPoints,
+      ideasPoints,
+      totalEarned,
+      spentPurchases,
+      availablePoints,
+    };
+  }
+
+  getUserAvailablePoints(userId: string): number {
+    return this.getMemberPointsBreakdown(userId).availablePoints;
   }
 
   createRewardItem(title: string, description: string, costPoints: number, stock: number, actor: UserProfile): RewardItem {
     const item: RewardItem = {
-      id: 'reward-' + Math.random().toString(36).slice(2),
+      id: 'reward-' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)),
       title,
       description,
       costPoints,
@@ -4097,12 +4220,25 @@ class SupabaseDatabase {
     const all = this.getRewards();
     this._lsSave('eye_rewards', [item, ...all]);
     this.notify();
+
+    if (isSupabaseConfigured && supabase) {
+      supabase.from('reward_items').insert({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        cost_points: item.costPoints,
+        stock: item.stock,
+        category: 'Perks',
+        icon: 'Gift',
+      }).then();
+    }
+
     this.logActivity(actor.id, actor.fullName, actor.role, 'Reward Created', `Created reward item: "${title}" costing ${costPoints} points`);
     return item;
   }
 
   getPurchases(): RewardPurchase[] {
-    return this._ls<RewardPurchase>('eye_reward_purchases').sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt));
+    return this._ls<RewardPurchase>('eye_reward_purchases').sort((a, b) => (b.purchasedAt || '').localeCompare(a.purchasedAt || ''));
   }
 
   purchaseReward(rewardId: string, member: UserProfile): 'ok' | 'no_points' | 'no_stock' {
@@ -4112,50 +4248,59 @@ class SupabaseDatabase {
     const reward = rewards[rIdx];
     if (reward.stock <= 0) return 'no_stock';
 
-    // Check user points: sum up points from submissions
-    const submissions = this.getSubmissions().filter(s => s.memberId === member.id);
-    const tasks = this.getTasks();
-    let pts = 0;
-    for (const sub of submissions) {
-      const t = tasks.find(x => x.id === sub.taskId);
-      if (sub.status === 'Accepted') {
-        pts += t && new Date(sub.submittedAt) <= new Date(t.deadline) ? 100 : 60;
-        const grade = (sub as any).grade;
-        if (grade !== undefined && grade >= 90) pts += 20;
-        else if (grade !== undefined && grade >= 75) pts += 10;
-      } else if (sub.status === 'Rejected') {
-        pts += 10;
-      } else if (sub.status === 'Pending') {
-        pts += 5;
-      }
+    // Verify member available points
+    const available = this.getUserAvailablePoints(member.id);
+    if (available < reward.costPoints) {
+      return 'no_points';
     }
-
-    // Deduct already approved purchases
-    const purchases = this.getPurchases().filter(p => p.memberId === member.id && p.status === 'Approved');
-    const spent = purchases.reduce((acc, p) => acc + p.costPoints, 0);
-    const available = pts - spent;
-
-    if (available < reward.costPoints) return 'no_points';
 
     // Deduct stock
     reward.stock -= 1;
     this._lsSave('eye_rewards', rewards);
 
-    // Create purchase
+    // Create purchase record
+    const purchaseId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'pur-' + Math.random().toString(36).slice(2);
     const purchase: RewardPurchase = {
-      id: 'pur-' + Math.random().toString(36).slice(2),
+      id: purchaseId,
       rewardId,
       rewardTitle: reward.title,
       costPoints: reward.costPoints,
       memberId: member.id,
       memberName: member.fullName,
       purchasedAt: new Date().toISOString(),
-      status: 'Pending',
+      status: 'Approved', // Auto-approved immediately for instant redemption
     };
+
     const allP = this.getPurchases();
     this._lsSave('eye_reward_purchases', [purchase, ...allP]);
     this.notify();
-    this.logActivity(member.id, member.fullName, member.role, 'Reward Purchased', `Purchased "${reward.title}" for ${reward.costPoints} points`);
+
+    // Persist to Supabase
+    if (isSupabaseConfigured && supabase) {
+      supabase.from('reward_items').update({ stock: reward.stock }).eq('id', reward.id).then();
+      supabase.from('reward_purchases').insert({
+        id: purchase.id,
+        reward_id: purchase.rewardId,
+        reward_title: purchase.rewardTitle,
+        cost_points: purchase.costPoints,
+        user_id: member.id,
+        member_id: member.id,
+        member_name: member.fullName,
+        status: purchase.status,
+        purchased_at: purchase.purchasedAt,
+      }).then();
+    }
+
+    // Send confirmation notification to the member
+    this.addNotification(
+      member.id,
+      'تم استبدال المكافأة بنجاح! 🎁',
+      `تهانينا! لقد قمت باستبدال ${reward.costPoints} نقطة والحصول على "${reward.title}". رصيدك المتبقي الآن: ${available - reward.costPoints} نقطة.`,
+      'success',
+      purchase.id
+    );
+
+    this.logActivity(member.id, member.fullName, member.role, 'Reward Purchased', `Redeemed "${reward.title}" for ${reward.costPoints} points`);
     return 'ok';
   }
 
@@ -4166,7 +4311,51 @@ class SupabaseDatabase {
     });
     this._lsSave('eye_reward_purchases', all);
     this.notify();
+
+    if (isSupabaseConfigured && supabase) {
+      supabase.from('reward_purchases').update({ status: 'Approved' }).eq('id', purchaseId).then();
+    }
+
     this.logActivity(actor.id, actor.fullName, actor.role, 'Purchase Approved', `Approved reward purchase ${purchaseId}`);
+  }
+
+  rejectPurchase(purchaseId: string, reason: string, actor: UserProfile): void {
+    const purchases = this.getPurchases();
+    const purchase = purchases.find(p => p.id === purchaseId);
+    if (!purchase) return;
+
+    // Restore stock to the reward item
+    const rewards = this.getRewards();
+    const reward = rewards.find(r => r.id === purchase.rewardId);
+    if (reward) {
+      reward.stock += 1;
+      this._lsSave('eye_rewards', rewards);
+      if (isSupabaseConfigured && supabase) {
+        supabase.from('reward_items').update({ stock: reward.stock }).eq('id', reward.id).then();
+      }
+    }
+
+    const all = purchases.map(p => {
+      if (p.id !== purchaseId) return p;
+      return { ...p, status: 'Rejected' as const, rejectionReason: reason };
+    });
+    this._lsSave('eye_reward_purchases', all);
+    this.notify();
+
+    if (isSupabaseConfigured && supabase) {
+      supabase.from('reward_purchases').update({ status: 'Rejected' }).eq('id', purchaseId).then();
+    }
+
+    // Notify member about points restoration
+    this.addNotification(
+      purchase.memberId,
+      'تم استرجاع نقاطك 🔄',
+      `تم رفض طلب استبدال المكافأة "${purchase.rewardTitle}" واسترجاع ${purchase.costPoints} نقطة إلى رصيدك. سبب الرفض: ${reason || 'بواسطة الإدارة'}.`,
+      'info',
+      purchaseId
+    );
+
+    this.logActivity(actor.id, actor.fullName, actor.role, 'Purchase Rejected', `Rejected reward purchase ${purchaseId} and restored points`);
   }
 
   deleteRewardItem(rewardId: string, actor: UserProfile): void {
@@ -4175,7 +4364,7 @@ class SupabaseDatabase {
     this._lsSave('eye_rewards', all);
     this.notify();
     if (isSupabaseConfigured && supabase) {
-      supabase.from('rewards').delete().eq('id', rewardId).then();
+      supabase.from('reward_items').delete().eq('id', rewardId).then();
     }
     this.logActivity(actor.id, actor.fullName, actor.role, 'Reward Deleted', `Deleted reward item ${rewardId}`);
   }
