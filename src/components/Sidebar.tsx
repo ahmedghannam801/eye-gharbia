@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'ideabank',      label: language === 'ar' ? 'بنك الأفكار والمقترحات' : 'Ideas & Pitch Bank', icon: Lightbulb, roles: ALL_ROLES },
         { id: 'polls',         label: language === 'ar' ? 'الاستطلاعات' : 'Polls',            icon: BarChart3,  roles: ALL_ROLES },
         { id: 'trivia',        label: language === 'ar' ? 'المسابقات الأسبوعية' : 'Weekly Trivia', icon: HelpCircle, roles: ALL_ROLES },
-        { id: 'templates-hub', label: language === 'ar' ? 'مكتبة القوالب والنماذج' : 'Templates Hub', icon: FolderDown, roles: ALL_ROLES },
+        { id: 'templates-hub', label: language === 'ar' ? 'مكتبة القوالب والنماذج' : 'Templates Hub', icon: FolderDown, roles: [...TOP_ROLES, 'Leader'] },
         { id: 'poster-maker',  label: language === 'ar' ? 'صانع البوسترات والتهاني 🎨' : 'Poster Maker 🎨', icon: Palette, roles: ALL_ROLES },
       ],
     },

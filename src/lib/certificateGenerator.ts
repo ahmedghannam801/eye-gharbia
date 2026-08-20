@@ -7,6 +7,8 @@
  * gold framing, official seals, and Arabic typography.
  */
 
+import { jsPDF } from 'jspdf';
+
 export interface CertificateData {
   memberName: string;
   recipientRole?: string;
@@ -716,6 +718,51 @@ export const downloadCertificate = (data: CertificateData) => {
     link.click();
     document.body.removeChild(link);
   });
+};
+
+/**
+ * Downloads a batch of certificates assembled in a single multi-page PDF file.
+ * Each certificate occupies its own crisp A4 landscape page.
+ */
+export const downloadBulkCertificatesAsPdf = async (
+  certsData: CertificateData[],
+  filename = 'شهادات_كيان_المصريون_الشباب.pdf',
+  onProgress?: (current: number, total: number) => void
+): Promise<boolean> => {
+  if (!certsData || certsData.length === 0) return false;
+
+  const assets = await loadAllAssets();
+  const pdf = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
+  });
+
+  for (let i = 0; i < certsData.length; i++) {
+    if (onProgress) onProgress(i + 1, certsData.length);
+    const cert = certsData[i];
+    const canvas = generateCertificate(cert, assets);
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+    if (i > 0) {
+      pdf.addPage('a4', 'landscape');
+    }
+    // A4 Landscape is 297mm x 210mm
+    pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210, undefined, 'FAST');
+  }
+
+  pdf.save(filename);
+  return true;
+};
+
+/**
+ * Downloads a single certificate directly as a PDF file.
+ */
+export const downloadCertificateAsPdf = async (data: CertificateData, filename?: string): Promise<boolean> => {
+  const safeName = data.memberName.trim();
+  const defaultFilename = filename || `شهادة تقدير - ${safeName}.pdf`;
+  return downloadBulkCertificatesAsPdf([data], defaultFilename);
 };
 
 export const printCertificate = (data: CertificateData) => {

@@ -36,22 +36,42 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
     const targetUser = users.find(u => u.id === targetMemberId);
     if (!targetUser) return;
 
+    const isLft = severity === 'Notice';
+
+    // 1. Update user profile disciplinary count
+    if (isLft) {
+      const newLft = (targetUser.lftNazarCount || 0) + 1;
+      db.updateUserFullDetails(targetUser.id, { lftNazarCount: newLft }, currentUser);
+    } else {
+      const currentInzar = targetUser.inzarCount || 0;
+      const targetLevel = severity === 'First Warning' ? 1 : severity === 'Second Warning' ? 2 : 3;
+      db.updateUserFullDetails(targetUser.id, { inzarCount: Math.max(currentInzar + 1, targetLevel) }, currentUser);
+    }
+
+    // 2. Save complete official disciplinary record & trigger push + in-app notification
     db.addDisciplinaryRecord({
+      type: isLft ? 'lft_nazar' : 'inzar',
       memberId: targetUser.id,
       memberName: targetUser.fullName,
       committee: targetUser.committee,
+      governorate: targetUser.governorate || currentUser.governorate || 'الغربية',
       severity,
       reason,
       regulationCode,
       penaltyPoints,
       issuedBy: currentUser.id,
       issuedByName: currentUser.fullName,
+      coordinator: currentUser.role === 'Coordinator' ? currentUser.fullName : 'منسق عام المحافظة',
+      noticeNumber: 'DISC-' + String(Math.floor(100 + Math.random() * 900)),
+      meetingDay: 'الاجتماع الدوري',
+      meetingDate: new Date().toLocaleDateString('ar-EG'),
     });
 
     loadData();
     setShowIssueModal(false);
     setTargetMemberId('');
     setReason('');
+    alert(isAr ? `تم إصدار ${isLft ? 'لفت النظر الرسمي' : 'الإنذار الرسمي'} وإرسال إشعار فوري للعضو ${targetUser.fullName} بنجاح! 📩` : `Warning issued and sent to ${targetUser.fullName}!`);
   };
 
   const handleDeleteRecord = (id: string) => {

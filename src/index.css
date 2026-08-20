@@ -597,26 +597,47 @@
 .animate-spin-slow { animation: spin-slow 8s linear infinite; }
 .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
 
-/* Premium UI/UX page transitions */
+/* Premium UI/UX page transitions - cleanly resets transform so fixed modals attach directly to viewport */
 @keyframes page-enter {
-  0%   { opacity: 0; transform: translateY(10px) scale(0.995); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0%   { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: none; }
 }
-.animate-page-enter { animation: page-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-page-enter { 
+  animation: page-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+}
 
 @keyframes fade-in {
-  0%   { opacity: 0; transform: translateY(6px); }
-  100% { opacity: 1; transform: translateY(0); }
+  0%   { opacity: 0; transform: translateY(4px); }
+  100% { opacity: 1; transform: none; }
 }
-.animate-fade-in { animation: fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in { 
+  animation: fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+}
 
-/* Fast Page & Component Animation Engine (< 250ms) */
-@keyframes page-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* Modal overlay guarantees viewport anchoring */
+.eye-fixed-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
 }
-.animate-page-enter {
-  animation: page-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+/* Force all top-level fixed dialogs to always stick to viewport */
+.fixed.inset-0 {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
 }
 
 @keyframes fast-fade-in {

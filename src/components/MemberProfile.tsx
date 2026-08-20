@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, calculateMemberAVG } from '../db/localDb';
 import { supabase, getPermanentStorageUrl } from '../lib/supabaseClient';
-import { UserProfile, ActivityLog, IssuedCertificate, CertificateType, MemberEvaluation, getUserRoleTitle } from '../types';
-import { Phone, Award, Activity, Calendar, User, Camera, Loader2, ZoomIn, ZoomOut, RotateCw, X, Download, Eye, Star, Crown, Target, Trash2, ShieldCheck, Lock, Sliders, MessageSquare, Sparkles, CheckCircle2, ArrowLeft, Linkedin, Facebook, Cake, Globe, Printer } from 'lucide-react';
+import { UserProfile, ActivityLog, IssuedCertificate, CertificateType, MemberEvaluation, DisciplinaryRecord, getUserRoleTitle } from '../types';
+import { Phone, Award, Activity, Calendar, User, Camera, Loader2, ZoomIn, ZoomOut, RotateCw, X, Download, Eye, Star, Crown, Target, Trash2, ShieldCheck, Lock, Sliders, MessageSquare, Sparkles, CheckCircle2, ArrowLeft, Linkedin, Facebook, Cake, Globe, Printer, ShieldAlert, FileText, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
 import { downloadCertificate, printCertificate, getCommitteeSignatories } from '../lib/certificateGenerator';
 import { printDedicatedOfficialDocument } from '../lib/dedicatedPrint';
@@ -528,13 +528,43 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
   const [transparentLogo, setTransparentLogo] = useState<string>('/eye-logo-premium.jpg');
   const [newSkillText, setNewSkillText] = useState('');
   const [isDownloadingCard, setIsDownloadingCard] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'goals'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'goals' | 'disciplinary'>('profile');
   const [isAvatarProtected, setIsAvatarProtected] = useState<boolean>(activeUser.isAvatarProtected || false);
   const [linkedIn, setLinkedIn] = useState(activeUser.linkedInUrl || '');
   const [facebook, setFacebook] = useState(activeUser.facebookUrl || '');
   const [dob, setDob] = useState(activeUser.dateOfBirth || '');
   const [showPhoneToOthers, setShowPhoneToOthers] = useState<boolean>(activeUser.showPhoneToOthers !== false);
   const [showAvatarToOthers, setShowAvatarToOthers] = useState<boolean>(activeUser.showAvatarToOthers !== false);
+
+  // Disciplinary records & Official document viewing
+  const [disciplinaryRecords, setDisciplinaryRecords] = useState<DisciplinaryRecord[]>(() => {
+    const all = db.getDisciplinaryRecords(currentUser) || [];
+    return all.filter(r => r.memberId === activeUser.id || (r.memberName && r.memberName.trim() === activeUser.fullName.trim()));
+  });
+  const [viewingDisciplinary, setViewingDisciplinary] = useState<DisciplinaryRecord | null>(null);
+
+  useEffect(() => {
+    const loadDisc = () => {
+      const all = db.getDisciplinaryRecords(currentUser) || [];
+      const userDisc = all.filter(r => r.memberId === activeUser.id || (r.memberName && r.memberName.trim() === activeUser.fullName.trim()));
+      setDisciplinaryRecords(userDisc);
+    };
+    loadDisc();
+    const unsub = db.onChange(loadDisc);
+    return () => unsub();
+  }, [activeUser.id, activeUser.fullName]);
+
+  // Auto-open disciplinary notice modal when arriving from a notification
+  useEffect(() => {
+    if (selectedCertId) {
+      const allDisc = db.getDisciplinaryRecords(currentUser) || [];
+      const matched = allDisc.find(r => r.id === selectedCertId || (r.memberId === activeUser.id && r.id === selectedCertId));
+      if (matched) {
+        setViewingDisciplinary(matched);
+        setActiveTab('disciplinary');
+      }
+    }
+  }, [selectedCertId, activeUser.id]);
 
   // Member Evaluation States
   const [evaluations, setEvaluations] = useState<MemberEvaluation[]>(() =>
@@ -558,6 +588,158 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
     const unsub = db.onChange(refreshEvals);
     return () => unsub();
   }, [activeUser.id]);
+
+  const handlePrintDisciplinaryDoc = (rec: DisciplinaryRecord) => {
+    const isNotice = rec.type === 'lft_nazar' || rec.severity === 'Notice';
+    const titleHeading = isNotice ? 'لفت نظر' : 'إنذار';
+    const noticeNo = rec.noticeNumber || '01';
+    const meetingDay = rec.meetingDay || 'الاجتماع الدوري';
+    const meetingDate = rec.meetingDate || new Date(rec.issuedAt).toLocaleDateString('ar-EG');
+    const hrManager = rec.issuedByName || 'مسئول الموارد البشرية';
+    const coordinator = rec.coordinator || 'منسق المحافظة';
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert(language === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة لطباعة المستند الرسمي' : 'Please allow popups to print');
+      return;
+    }
+
+    const alertHtml = `<div style="margin-top: 30px; margin-bottom: 25px; text-align: center; color: #dc2626; border: 1.5px dashed #dc2626; padding: 12px 18px; border-radius: 12px; background-color: #fff5f5;">
+      <div style="font-weight: 900; font-size: 16px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <span style="font-size: 18px;">🛑</span> تنبية
+      </div>
+      <div style="font-size: 13.5px; font-weight: 700; line-height: 1.6;">
+        نود إعلامكم أنه سيتم إنهاء المشاركة بالكيان بشكل رسمي في حال تلقي ثلاثة إنذارات , نرجو الالتزام بالتوجيهات لضمان استمرار مشاركتكم الفعالة.
+      </div>
+    </div>`;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="utf-8">
+        <title>مستند رسمي - ${titleHeading} - ${rec.memberName}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
+          @page { size: A4; margin: 15mm; }
+          body {
+            font-family: 'Cairo', sans-serif;
+            margin: 0;
+            padding: 25px;
+            background: #ffffff;
+            color: #1e293b;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .container {
+            border: 2px solid #0f172a;
+            border-radius: 18px;
+            padding: 30px;
+            min-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+          }
+          .header-table { width: 100%; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+          .title-box {
+            text-align: center;
+            margin: 25px auto;
+            background: ${isNotice ? '#fef3c7' : '#fee2e2'};
+            border: 2px solid ${isNotice ? '#f59e0b' : '#ef4444'};
+            color: ${isNotice ? '#92400e' : '#991b1b'};
+            padding: 10px 40px;
+            border-radius: 30px;
+            font-size: 24px;
+            font-weight: 900;
+            display: inline-block;
+          }
+          .data-table { width: 100%; border-collapse: separate; border-spacing: 0 10px; margin-top: 15px; }
+          .data-label { width: 30%; font-weight: 800; font-size: 15px; color: #475569; padding: 10px 15px; background: #f8fafc; border-radius: 8px 0 0 8px; border: 1px solid #e2e8f0; border-left: none; }
+          .data-val { width: 70%; font-weight: 900; font-size: 16px; color: #0f172a; padding: 10px 15px; background: #ffffff; border-radius: 0 8px 8px 0; border: 1px solid #e2e8f0; border-right: none; }
+          .footer-signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
+          .signature-box { text-align: center; width: 40%; }
+          .signature-title { font-size: 14px; font-weight: 700; color: #64748b; margin-bottom: 8px; }
+          .signature-name { font-size: 17px; font-weight: 900; color: #0f172a; border-bottom: 1.5px dashed #94a3b8; padding-bottom: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div>
+            <table class="header-table">
+              <tr>
+                <td style="text-align: right; width: 33%;">
+                  <div style="font-weight: 900; font-size: 17px; color: #1e3a8a;">جمهورية مصر العربية</div>
+                  <div style="font-weight: 800; font-size: 14px; color: #475569;">وزارة الشباب والرياضة</div>
+                  <div style="font-weight: 700; font-size: 13px; color: #059669;">الإدارة المركزية لتنمية الشباب</div>
+                </td>
+                <td style="text-align: center; width: 34%;">
+                  <div style="font-weight: 900; font-size: 20px; color: #1e3a8a; letter-spacing: 2px;">كيان EYE الشبابي</div>
+                  <div style="font-size: 12px; font-weight: 700; color: #64748b;">محافظة ${rec.governorate || 'الغربية'}</div>
+                </td>
+                <td style="text-align: left; width: 33%;">
+                  <div style="font-weight: 800; font-size: 14px; color: #475569;">نموذج مستند إداري رسمي</div>
+                  <div style="font-size: 12px; font-weight: 700; color: #64748b;">كود: ${rec.regulationCode || 'LN-01'}</div>
+                </td>
+              </tr>
+            </table>
+
+            <div style="text-align: center;">
+              <div class="title-box">${titleHeading}</div>
+            </div>
+
+            ${alertHtml}
+
+            <table class="data-table">
+              <tr>
+                <td class="data-label">اسم العضو:</td>
+                <td class="data-val">${rec.memberName}</td>
+              </tr>
+              <tr>
+                <td class="data-label">اللجنة / القسم:</td>
+                <td class="data-val">${rec.committee || 'عام'}</td>
+              </tr>
+              <tr>
+                <td class="data-label">المحافظة:</td>
+                <td class="data-val">${rec.governorate || 'الغربية'}</td>
+              </tr>
+              <tr>
+                <td class="data-label">رقم المعاملة:</td>
+                <td class="data-val">${noticeNo}</td>
+              </tr>
+              <tr>
+                <td class="data-label">يوم الاجتماع:</td>
+                <td class="data-val">${meetingDay}</td>
+              </tr>
+              <tr>
+                <td class="data-label">تاريخ الاجتماع:</td>
+                <td class="data-val">${meetingDate}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="footer-signatures">
+            <div class="signature-box">
+              <div class="signature-title">مسئول لجنة الموارد البشرية</div>
+              <div class="signature-name">${hrManager}</div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-title">منسق عام المحافظة</div>
+              <div class="signature-name">${coordinator}</div>
+            </div>
+          </div>
+        </div>
+        <script>
+          window.onload = () => { window.print(); };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   const targetIsLeaderOrAbove = ['Leader', 'Vice', 'Super Admin', 'Coordinator', 'Deputy Coordinator'].includes(activeUser.role);
   const isExecOrVice = ['Super Admin', 'Coordinator', 'Deputy Coordinator', 'Vice'].includes(currentUser.role);
@@ -1282,6 +1464,20 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
               <Target className="w-4 h-4" />
               <span>{language === 'ar' ? 'أهدافي الشخصية (Career Compass)' : 'My Goals'}</span>
             </button>
+            <button
+              onClick={() => setActiveTab('disciplinary')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                activeTab === 'disciplinary' ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <ShieldAlert className="w-4 h-4 text-red-500 group-hover:text-red-400" />
+              <span>{language === 'ar' ? 'السجل الانضباطي والإنذارات 📜' : 'Disciplinary & Notices 📜'}</span>
+              {disciplinaryRecords.length > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                  {disciplinaryRecords.length}
+                </span>
+              )}
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-start md:justify-end">
             <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-all select-none border border-slate-200 dark:border-slate-700">
@@ -1449,6 +1645,179 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
         {activeTab === 'goals' ? (
           <div className="lg:col-span-12">
             <CareerCompass currentUser={activeUser} />
+          </div>
+        ) : activeTab === 'disciplinary' ? (
+          <div className="lg:col-span-12 space-y-6">
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-red-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 rounded-3xl border border-red-800/40 shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="space-y-1 text-start">
+                <div className="flex items-center gap-2 text-red-400 font-bold text-xs">
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>{language === 'ar' ? 'السجل الانضباطي والإنذارات الرسمية' : 'Official Warning & Disciplinary Vault'}</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black">
+                  {language === 'ar' ? `سجل التنبيهات والإنذارات — ${activeUser.fullName}` : `Disciplinary Records — ${activeUser.fullName}`}
+                </h2>
+                <p className="text-xs text-red-200/80 font-medium">
+                  {language === 'ar' ? 'حصر وتوثيق لفتات النظر والإنذارات الرسمية الصادرة وفق اللائحة التنظيمية المعتمدة لكيان EYE.' : 'Official warnings and disciplinary records issued under approved EYE bylaws.'}
+                </p>
+              </div>
+
+              {/* Status Indicator */}
+              <div className="px-4 py-2.5 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-md flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${disciplinaryRecords.length === 0 ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+                <span className="text-xs font-black">
+                  {disciplinaryRecords.length === 0 
+                    ? (language === 'ar' ? 'السجل نظيف 100% ✨' : 'Clean Record ✨')
+                    : (language === 'ar' ? `${disciplinaryRecords.length} إجراء مسجل ⚠️` : `${disciplinaryRecords.length} Records ⚠️`)}
+                </span>
+              </div>
+            </div>
+
+            {/* Warnings Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white dark:bg-slate-900 border border-amber-200/60 dark:border-amber-900/40 p-5 rounded-2xl shadow-sm text-start space-y-1">
+                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">{language === 'ar' ? 'لفت النظر الشفوي / الإداري' : 'Oral / Admin Notices'}</span>
+                <p className="text-2xl font-black text-slate-900 dark:text-white">
+                  {disciplinaryRecords.filter(r => r.type === 'lft_nazar' || r.severity === 'Notice').length}
+                </p>
+                <p className="text-[10px] text-slate-400 font-bold">{language === 'ar' ? 'تنبيه إداري أولي للتوجيه والالتزام' : 'First guidance note'}</p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-red-200/60 dark:border-red-900/40 p-5 rounded-2xl shadow-sm text-start space-y-1">
+                <span className="text-[11px] font-bold text-red-600 dark:text-red-400">{language === 'ar' ? 'الإنذارات الرسمية المعتمدة' : 'Official Warnings'}</span>
+                <p className="text-2xl font-black text-slate-900 dark:text-white">
+                  {disciplinaryRecords.filter(r => r.type === 'inzar' || (r.severity && r.severity !== 'Notice')).length}
+                </p>
+                <p className="text-[10px] text-slate-400 font-bold">{language === 'ar' ? 'محتسب رسمياً ضمن سُلم الجزاءات (الحد: 3)' : 'Official ladder (Limit: 3)'}</p>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm text-start space-y-1">
+                <span className="text-[11px] font-bold text-slate-500">{language === 'ar' ? 'الإنهاء التلقائي للمشاركة' : 'Termination Risk'}</span>
+                <div className="flex items-center gap-1.5 pt-1">
+                  {[1, 2, 3].map(step => {
+                    const inzarCount = disciplinaryRecords.filter(r => r.type === 'inzar' || (r.severity && r.severity !== 'Notice')).length;
+                    const filled = inzarCount >= step;
+                    return (
+                      <div
+                        key={step}
+                        className={`flex-1 h-3 rounded-full transition-all ${
+                          filled ? 'bg-red-600 shadow-sm shadow-red-500/50' : 'bg-slate-200 dark:bg-slate-800'
+                        }`}
+                        title={`${language === 'ar' ? 'إنذار' : 'Warning'} ${step}`}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold">{language === 'ar' ? '3 إنذارات = إنهاء المشاركة بالكيان' : '3 Warnings = Official Dismissal'}</p>
+              </div>
+            </div>
+
+            {/* Official Warning Notice Alert Banner */}
+            {disciplinaryRecords.length > 0 && (
+              <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-start flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-red-800 dark:text-red-300">
+                    {language === 'ar' ? '🛑 تنبيه تنظيمي هام وفق اللائحة الداخلية' : '🛑 Important Regulatory Compliance Note'}
+                  </h4>
+                  <p className="text-xs text-red-700 dark:text-red-300/90 font-bold leading-relaxed">
+                    {language === 'ar'
+                      ? 'نود إعلامكم أنه سيتم إنهاء المشاركة بالكيان بشكل رسمي في حال تلقي ثلاثة إنذارات، نرجو الالتزام بالتوجيهات لضمان استمرار مشاركتكم الفعالة وخدمة وطننا.'
+                      : 'Please note that participation in the entity will be formally terminated upon receiving 3 warnings. Please adhere to guidelines to ensure continued membership.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Disciplinary Records List */}
+            <div className="space-y-4">
+              {disciplinaryRecords.length === 0 ? (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 mx-auto">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    {language === 'ar' ? 'السجل الانضباطي ناصع 100%! ✨' : 'Perfect Disciplinary Record! ✨'}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500 max-w-md mx-auto">
+                    {language === 'ar' 
+                      ? 'لا توجد أي لفتات نظر أو إنذارات مسجلة بحق العضو. استمر في التميز والالتزام!'
+                      : 'No disciplinary notices or warnings registered. Keep up the high standard of commitment!'}
+                  </p>
+                </div>
+              ) : (
+                disciplinaryRecords.map((rec, idx) => {
+                  const isNotice = rec.type === 'lft_nazar' || rec.severity === 'Notice';
+                  return (
+                    <div
+                      key={rec.id}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-start"
+                    >
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                          isNotice 
+                            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-600'
+                            : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600'
+                        }`}>
+                          <ShieldAlert className="w-6 h-6" />
+                        </div>
+
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                              isNotice
+                                ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300'
+                                : 'bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 border-red-300'
+                            }`}>
+                              {isNotice ? (language === 'ar' ? '⚠️ لفت نظر رسمي' : '⚠️ Official Notice') : (language === 'ar' ? '🔴 إنذار رسمي' : '🔴 Official Warning')}
+                            </span>
+                            {rec.noticeNumber && (
+                              <span className="text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-slate-600 dark:text-slate-300">
+                                #{rec.noticeNumber}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {new Date(rec.issuedAt).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+                            </span>
+                          </div>
+
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                            {rec.reason || (language === 'ar' ? `بخصوص اجتماع يوم ${rec.meetingDay || ''} ${rec.meetingDate || ''}` : 'Administrative violation note')}
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-4 text-[10px] text-slate-400 font-bold pt-1">
+                            <span>{language === 'ar' ? 'صادر بواسطة' : 'Issued by'}: {rec.issuedByName || 'مسئول الموارد البشرية'}</span>
+                            {rec.coordinator && <span>• {language === 'ar' ? 'المنسق' : 'Coordinator'}: {rec.coordinator}</span>}
+                            {rec.meetingDate && <span>• {language === 'ar' ? 'الاجتماع' : 'Meeting'}: {rec.meetingDay || ''} ({rec.meetingDate})</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 self-end md:self-center shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setViewingDisciplinary(rec)}
+                          className="px-4 py-2.5 bg-eye-brand hover:bg-eye-brand-dark text-white rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>{language === 'ar' ? 'معاينة المستند الرسمي 📜' : 'View Document 📜'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePrintDisciplinaryDoc(rec)}
+                          className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-all cursor-pointer"
+                          title={language === 'ar' ? 'طباعة المستند الرسمي' : 'Print document'}
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         ) : (
         <>
@@ -3087,6 +3456,145 @@ export const MemberProfile: React.FC<MemberProfileProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Official Disciplinary Document Viewing Modal */}
+      {viewingDisciplinary && (
+        <div className="eye-fixed-modal bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in" style={{ zIndex: 99999 }}>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl space-y-6 text-slate-900 dark:text-slate-100 max-h-[92vh] overflow-y-auto" dir="rtl">
+            {/* Top Toolbar */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-red-500" />
+                <h3 className="text-sm sm:text-base font-black">
+                  {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'معاينة لفت نظر رسمي 📜' : 'معاينة إنذار رسمي 🔴'}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePrintDisciplinaryDoc(viewingDisciplinary)}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>طباعة المستند (PDF)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingDisciplinary(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Document Content View */}
+            <div className="border-2 border-slate-900 dark:border-slate-700 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-950/50 space-y-6 text-slate-900 dark:text-slate-100">
+              {/* Header */}
+              <div className="flex justify-between items-start border-b-2 border-slate-300 dark:border-slate-800 pb-4 text-xs font-bold">
+                <div className="space-y-0.5 text-right">
+                  <div className="font-black text-blue-900 dark:text-blue-400 text-sm">جمهورية مصر العربية</div>
+                  <div>وزارة الشباب والرياضة</div>
+                  <div className="text-emerald-700 dark:text-emerald-400">الإدارة المركزية لتنمية الشباب</div>
+                </div>
+                <div className="text-center space-y-0.5">
+                  <div className="font-black text-blue-900 dark:text-blue-400 text-base">كيان EYE الشبابي</div>
+                  <div className="text-slate-500">محافظة {viewingDisciplinary.governorate || 'الغربية'}</div>
+                </div>
+                <div className="text-left space-y-0.5">
+                  <div className="font-bold text-slate-600 dark:text-slate-400">مستند إداري رسمي</div>
+                  <div className="font-mono text-slate-500">كود: {viewingDisciplinary.regulationCode || 'LN-01'}</div>
+                </div>
+              </div>
+
+              {/* Title Badge */}
+              <div className="text-center">
+                <span className={`inline-block px-8 py-2 rounded-full text-lg font-black border-2 ${
+                  viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border-amber-500'
+                    : 'bg-red-100 dark:bg-red-950 text-red-900 dark:text-red-200 border-red-500'
+                }`}>
+                  {viewingDisciplinary.type === 'lft_nazar' || viewingDisciplinary.severity === 'Notice' ? 'لفت نظر' : 'إنذار'}
+                </span>
+              </div>
+
+              {/* Warning Alert Box */}
+              <div className="p-4 rounded-xl bg-red-100/70 dark:bg-red-950/60 border border-dashed border-red-500 text-center space-y-1">
+                <div className="font-black text-red-700 dark:text-red-300 text-sm flex items-center justify-center gap-1.5">
+                  <span>🛑</span>
+                  <span>تنبيه تنظيمي</span>
+                </div>
+                <p className="text-xs font-bold text-red-800 dark:text-red-200 leading-relaxed">
+                  نود إعلامكم أنه سيتم إنهاء المشاركة بالكيان بشكل رسمي في حال تلقي ثلاثة إنذارات، نرجو الالتزام بالتوجيهات لضمان استمرار مشاركتكم الفعالة.
+                </p>
+              </div>
+
+              {/* Data Table */}
+              <div className="border border-slate-300 dark:border-slate-700 rounded-xl overflow-hidden text-xs">
+                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">اسم العضو:</div>
+                  <div className="col-span-2 p-3 font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900">{viewingDisciplinary.memberName}</div>
+                </div>
+                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">اللجنة / القسم:</div>
+                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.committee || 'عام'}</div>
+                </div>
+                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">المحافظة:</div>
+                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.governorate || 'الغربية'}</div>
+                </div>
+                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">رقم المعاملة:</div>
+                  <div className="col-span-2 p-3 font-mono font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.noticeNumber || '01'}</div>
+                </div>
+                <div className="grid grid-cols-3 border-b border-slate-200 dark:border-slate-800">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">يوم الاجتماع:</div>
+                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.meetingDay || 'الاجتماع الدوري'}</div>
+                </div>
+                <div className="grid grid-cols-3">
+                  <div className="bg-slate-100 dark:bg-slate-800 p-3 font-black text-slate-700 dark:text-slate-300">تاريخ الاجتماع:</div>
+                  <div className="col-span-2 p-3 font-bold bg-white dark:bg-slate-900">{viewingDisciplinary.meetingDate || new Date(viewingDisciplinary.issuedAt).toLocaleDateString('ar-EG')}</div>
+                </div>
+              </div>
+
+              {/* Signatures */}
+              <div className="flex justify-between items-center pt-8 border-t border-slate-200 dark:border-slate-800 text-center">
+                <div className="space-y-1">
+                  <div className="text-[11px] font-bold text-slate-500">مسئول لجنة الموارد البشرية</div>
+                  <div className="text-sm font-black text-slate-900 dark:text-white border-b-2 border-slate-300 dark:border-slate-700 pb-1">
+                    {viewingDisciplinary.issuedByName || 'أحمد إبراهيم'}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-[11px] font-bold text-slate-500">منسق عام المحافظة</div>
+                  <div className="text-sm font-black text-slate-900 dark:text-white border-b-2 border-slate-300 dark:border-slate-700 pb-1">
+                    {viewingDisciplinary.coordinator || 'منسق المحافظة'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setViewingDisciplinary(null)}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all cursor-pointer"
+              >
+                إغلاق
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrintDisciplinaryDoc(viewingDisciplinary)}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                <span>طباعة المستند الرسمي</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </>
       )}

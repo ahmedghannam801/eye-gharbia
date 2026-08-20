@@ -962,25 +962,48 @@ export const TemplatesHub: React.FC<TemplatesHubProps> = ({ currentUser }) => {
                           alert(isAr ? 'يرجى إكمال كافة بيانات المستند (اسم العضو، تاريخ الاجتماع، ورقم المستند) قبل الإرسال' : 'Please complete all document fields before sending.');
                           return;
                         }
-                        const targetUser = allUsers.find(u => u.fullName.trim() === formMemberName.trim());
+                        const targetUser = allUsers.find(u => 
+                          u.fullName.trim().toLowerCase() === formMemberName.trim().toLowerCase() ||
+                          u.id === formMemberName
+                        );
                         const isNotice = selectedOfficialTemplate.type === 'lft_nazar' || selectedOfficialTemplate.id === 'tmpl-lft-nazar';
                         const docTitle = isNotice ? 'لفت نظر رسمي ⚠️' : 'إنذار رسمي 🔴';
+                        const [y, m, d] = (formMeetingDate || '').split('-');
+                        const formattedDate = (y && m && d) ? `${d}/${m}/${y}` : formMeetingDate;
 
                         if (targetUser) {
                           if (isNotice) {
-                            db.updateProfile(targetUser.id, { lftNazarCount: (targetUser.lftNazarCount || 0) + 1 }, currentUser);
+                            const newLft = (targetUser.lftNazarCount || 0) + 1;
+                            db.updateUserFullDetails(targetUser.id, { lftNazarCount: newLft }, currentUser);
+                            if (newLft >= 2) {
+                              setTimeout(() => setEscalationMember({ name: formMemberName, userId: targetUser.id }), 600);
+                            }
                           } else {
-                            db.updateProfile(targetUser.id, { inzarCount: (targetUser.inzarCount || 0) + 1 }, currentUser);
+                            const newInzar = (targetUser.inzarCount || 0) + 1;
+                            db.updateUserFullDetails(targetUser.id, { inzarCount: newInzar, lftNazarCount: 0 }, currentUser);
                           }
-                          db.addNotification(
-                            targetUser.id,
-                            docTitle,
-                            `تم صياغة وإرسال ${docTitle} لك (رقم ${formNoticeNumber}) بخصوص اجتماع يوم ${formMeetingDay} الموافق ${formMeetingDate}.`,
-                            'warning'
-                          );
                         }
 
-                        alert(isAr ? `تم إرسال ${docTitle} وتسجيله بحق العضو ${formMemberName} وإرسال إشعار له بنجاح! 📩` : `Document sent to member ${formMemberName}!`);
+                        db.addDisciplinaryRecord({
+                          type: isNotice ? 'lft_nazar' : 'inzar',
+                          memberName: targetUser?.fullName || formMemberName,
+                          memberId: targetUser?.id,
+                          committee: formCommitteeName || targetUser?.committee || 'General',
+                          governorate: formGovernorate || targetUser?.governorate || 'الغربية',
+                          noticeNumber: formNoticeNumber,
+                          meetingDay: formMeetingDay,
+                          meetingDate: formattedDate,
+                          issuedBy: currentUser.id,
+                          issuedByName: formHrManager || currentUser.fullName,
+                          coordinator: formCoordinator,
+                          reason: `بخصوص اجتماع يوم ${formMeetingDay} الموافق ${formattedDate}`,
+                          severity: isNotice ? 'Notice' : 'First Warning',
+                          regulationCode: isNotice ? 'LN-01' : 'WR-01',
+                          penaltyPoints: isNotice ? 5 : 10,
+                        });
+
+                        loadData();
+                        alert(isAr ? `تم إرسال ${docTitle} وتسجيله بحق العضو ${formMemberName} وإرسال إشعار فوري له بنجاح! 📩` : `Document sent to member ${formMemberName}!`);
                       }}
                       className="w-full py-3 bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white rounded-2xl font-black text-xs shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
                     >

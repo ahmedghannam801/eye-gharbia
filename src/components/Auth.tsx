@@ -38,15 +38,29 @@ const EGYPT_GOVERNORATES = [
 interface AuthProps {
   onAuthSuccess: (user: UserProfile) => void;
   onNavigateHome: () => void;
-  initialMode?: 'login' | 'register';
+  initialMode?: 'login' | 'register' | 'forgot' | 'reset-password';
   showEmailConfirmedMsg?: boolean;
+  initialErrorMsg?: string;
 }
 
-export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigateHome, initialMode = 'login', showEmailConfirmedMsg }) => {
+export const Auth: React.FC<AuthProps> = ({
+  onAuthSuccess,
+  onNavigateHome,
+  initialMode = 'login',
+  showEmailConfirmedMsg,
+  initialErrorMsg,
+}) => {
   const { language, t, isRtl, translateCommittee, translateDepartment } = useLanguage();
   const { theme, toggleTheme } = useTheme();
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset-password'>(initialMode as any);
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset-password'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Synchronize internal mode whenever initialMode prop updates
+  useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+    }
+  }, [initialMode]);
 
   // Login fields
   const [loginEmail, setLoginEmail] = useState('');
@@ -88,10 +102,31 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigateHome, initi
     }
   }, [showEmailConfirmedMsg, language]);
 
+  useEffect(() => {
+    if (initialErrorMsg) {
+      setErrorMsg(getFriendlyErrorMessage(initialErrorMsg));
+    }
+  }, [initialErrorMsg, language]);
+
   const getFriendlyErrorMessage = (err: string): string => {
     if (!err) return '';
     const isAr = language === 'ar';
     const cleanErr = err.toLowerCase();
+    if (cleanErr.includes('otp_expired') || cleanErr.includes('expired') || cleanErr.includes('invalid or has expired')) {
+      return isAr
+        ? 'رابط استعادة كلمة المرور غير صالح أو انتهت صلاحيته. يرجى طلب رابط جديد.'
+        : 'The password reset link is invalid or has expired. Please request a new link.';
+    }
+    if (cleanErr.includes('session missing') || cleanErr.includes('auth session missing')) {
+      return isAr
+        ? 'انتهت صلاحية الجلسة. يرجى طلب رابط استعادة جديد من صفحة تسجيل الدخول.'
+        : 'Auth session missing or expired. Please request a new reset link.';
+    }
+    if (cleanErr.includes('different') || cleanErr.includes('should be different')) {
+      return isAr
+        ? 'يجب أن تكون كلمة المرور الجديدة مختلفة عن كلمة المرور السابقة.'
+        : 'New password should be different from the old password.';
+    }
     if (cleanErr.includes('rate limit') || cleanErr.includes('too many requests')) {
       return isAr
         ? 'تم تجاوز الحد الأقصى لإرسال رسائل البريد الإلكتروني. يرجى المحاولة بعد قليل.'
@@ -315,12 +350,15 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigateHome, initi
     const res = await db.updatePassword(newPassword);
     if (res.success) {
       setSuccessMsg(language === 'ar' ? 'تم تعيين كلمة المرور الجديدة بنجاح! جاري توجيهك لصفحة الدخول...' : 'Password updated successfully! Redirecting to login...');
-      setTimeout(() => {
+      setTimeout(async () => {
+        try {
+          await db.logout();
+        } catch {}
         setMode('login');
-        setSuccessMsg('');
+        setSuccessMsg(language === 'ar' ? 'تم تحديث كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.' : 'Password updated successfully. You can now log in.');
         setNewPassword('');
         setConfirmNewPassword('');
-      }, 2500);
+      }, 2000);
     } else {
       setErrorMsg(getFriendlyErrorMessage(res.message));
     }
@@ -380,6 +418,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigateHome, initi
           {mode === 'login' && (language === 'ar' ? 'تسجيل الدخول إلى كيان EYE' : 'Sign in to EYE Hub')}
           {mode === 'register' && (language === 'ar' ? 'طلب الانضمام لعائلة EYE' : 'Apply to EYE Organization')}
           {mode === 'forgot' && (language === 'ar' ? 'إعادة تعيين كلمة المرور' : 'Reset your password')}
+          {mode === 'reset-password' && (language === 'ar' ? 'تعيين كلمة المرور الجديدة' : 'Set New Password')}
         </h2>
         <p className="mt-2 text-xs sm:text-sm text-slate-500 font-bold">
           {mode === 'login' && (
@@ -398,7 +437,7 @@ export const Auth: React.FC<AuthProps> = ({ onAuthSuccess, onNavigateHome, initi
               </button>
             </>
           )}
-          {mode === 'forgot' && (
+          {(mode === 'forgot' || mode === 'reset-password') && (
             <button onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }} className="font-bold text-eye-brand hover:text-eye-brand-dark underline underline-offset-4">
               {language === 'ar' ? 'العودة لصفحة تسجيل الدخول' : 'Return to sign in'}
             </button>

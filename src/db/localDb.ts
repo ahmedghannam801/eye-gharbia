@@ -54,6 +54,7 @@ import {
   CalendarEvent,
   DisciplinaryRecord,
   MemoryPost,
+  IssuedPosterRecord,
   getUserRoleTitle,
   getActiveGovernorate,
 } from '../types';
@@ -251,21 +252,36 @@ const meetingFromRow = (r: any): Meeting => ({
   governorate: r.governorate || 'الغربية',
 });
 
-const disciplinaryFromRow = (r: any): DisciplinaryRecord => ({
-  id: r.id,
-  type: r.type || undefined,
-  memberId: r.member_id,
-  memberName: r.member_name,
-  committee: r.committee,
-  governorate: r.governorate || undefined,
-  severity: r.severity || 'Notice',
-  reason: r.reason,
-  regulationCode: r.regulation_code || 'L-102',
-  penaltyPoints: r.penalty_points || 5,
-  issuedBy: r.issued_by,
-  issuedByName: r.issued_by_name || '',
-  issuedAt: r.issued_at,
-});
+const disciplinaryFromRow = (r: any): DisciplinaryRecord => {
+  let parsedMeta: any = {};
+  let cleanReason = r.reason || '';
+  if (typeof r.reason === 'string' && r.reason.trim().startsWith('{') && r.reason.trim().endsWith('}')) {
+    try {
+      parsedMeta = JSON.parse(r.reason);
+      cleanReason = parsedMeta.note || parsedMeta.reason || cleanReason;
+    } catch {}
+  }
+
+  return {
+    id: r.id,
+    type: r.type || parsedMeta.type || (r.severity === 'Notice' ? 'lft_nazar' : 'inzar'),
+    memberId: r.member_id,
+    memberName: r.member_name,
+    committee: r.committee,
+    governorate: r.governorate || undefined,
+    noticeNumber: r.notice_number || parsedMeta.noticeNumber || undefined,
+    meetingDay: r.meeting_day || parsedMeta.meetingDay || undefined,
+    meetingDate: r.meeting_date || parsedMeta.meetingDate || undefined,
+    coordinator: r.coordinator || parsedMeta.coordinator || undefined,
+    severity: r.severity || (r.type === 'inzar' || parsedMeta.type === 'inzar' ? 'First Warning' : 'Notice'),
+    reason: cleanReason,
+    regulationCode: r.regulation_code || parsedMeta.regulationCode || 'LN-01',
+    penaltyPoints: r.penalty_points || parsedMeta.penaltyPoints || 5,
+    issuedBy: r.issued_by || '',
+    issuedByName: r.issued_by_name || parsedMeta.issuedByName || '',
+    issuedAt: r.issued_at || r.created_at || new Date().toISOString(),
+  };
+};
 
 const attendanceFromRow = (r: any): AttendanceRecord => ({
   id: r.id,
@@ -570,6 +586,23 @@ class SupabaseDatabase {
     if (this.initialized) return;
     this.initialized = true;
 
+    // Check if client is on older localStorage cache format and sanitize stale ghosts
+    const CACHE_SYNC_VERSION = 'EYE_PLATFORM_V3_CLEAN';
+    const lastSyncVer = localStorage.getItem('eye_cache_sync_version');
+    if (lastSyncVer !== CACHE_SYNC_VERSION) {
+      try {
+        localStorage.removeItem('eye_tasks');
+        localStorage.removeItem('eye_announcements');
+        localStorage.removeItem('eye_disciplinary_records');
+        localStorage.removeItem('eye_meetings');
+        localStorage.removeItem('eye_attendance');
+        localStorage.removeItem('eye_work_plans');
+        localStorage.removeItem('eye_ideas');
+        localStorage.removeItem('eye_member_evaluations');
+        localStorage.setItem('eye_cache_sync_version', CACHE_SYNC_VERSION);
+      } catch {}
+    }
+
     // 0. Pre-load all in-memory collections from localStorage synchronously on boot
     try {
       this.cache.users = this._ls<UserProfile>('eye_users');
@@ -639,7 +672,7 @@ class SupabaseDatabase {
       }
     };
 
-    const [users, tasks, submissions, announcements, notifications, logs, certificates, meetings, attendance, workPlans, ideas, evaluations, leaderFeedbacks, workshops, excusesFreezes, settings, disciplinaryRecords, memoryWall] =
+    const [users, tasks, submissions, announcements, notifications, logs, certificates, meetings, attendance, workPlans, ideas, evaluations, leaderFeedbacks, workshops, excusesFreezes, settings, disciplinaryRecords, memoryWall, occasions, issuedPosters] =
       await Promise.all([
         safeFetch(supabase.from('profiles').select('*').order('joined_date', { ascending: false })),
         safeFetch(supabase.from('tasks').select('*').order('created_date', { ascending: false })),
@@ -659,6 +692,8 @@ class SupabaseDatabase {
         safeFetch(supabase.from('org_settings').select('*').eq('id', 1).maybeSingle()),
         safeFetch(supabase.from('disciplinary_records').select('*').order('issued_at', { ascending: false })),
         safeFetch(supabase.from('memory_wall').select('*').order('created_at', { ascending: false })),
+        safeFetch(supabase.from('occasions').select('*').order('created_at', { ascending: false })),
+        safeFetch(supabase.from('issued_posters').select('*').order('created_at', { ascending: false })),
       ]);
 
     const getDeletedIds = (key: string): string[] => {
@@ -710,11 +745,16 @@ class SupabaseDatabase {
         };
       });
 
-      const remoteIds = new Set(mergedRemote.map((r) => r.id));
-      return [...mergedRemote, ...validLocal.filter((l) => !remoteIds.has(l.id))];
+      // ONLY keep local items if they were created offline and have not yet synced
+      // Never resurrect items that were removed or deleted from Supabase!
+      const pendingLocal = validLocal.filter(l => {
+        return (l as any)._pendingOffline === true || (typeof l.id === 'string' && l.id.startsWith('offline-'));
+      });
+
+      return [...mergedRemote, ...pendingLocal];
     };
 
-    if (users.data && users.data.length > 0) {
+    if (users.data) {
       const remoteUsers = users.data.map(userFromRow);
       const localUsers = this._ls<UserProfile>('eye_users');
       this.cache.users = mergeById(remoteUsers, localUsers, deletedUserIds);
@@ -734,7 +774,7 @@ class SupabaseDatabase {
       }
     }
 
-    if (tasks.data && tasks.data.length > 0) {
+    if (tasks.data) {
       const remoteTasks = tasks.data.map(taskFromRow);
       const localTasks = this._ls<Task>('eye_tasks');
       this.cache.tasks = mergeById(remoteTasks, localTasks, deletedTaskIds);
@@ -745,7 +785,7 @@ class SupabaseDatabase {
       this._lsSave('eye_tasks', this.cache.tasks);
     }
 
-    if (submissions.data && submissions.data.length > 0) {
+    if (submissions.data) {
       const remoteSubmissions = submissions.data.map(submissionFromRow);
       const localSubmissions = this._ls<Submission>('eye_submissions');
       this.cache.submissions = mergeById(remoteSubmissions, localSubmissions, deletedSubIds);
@@ -756,7 +796,7 @@ class SupabaseDatabase {
       this._lsSave('eye_submissions', this.cache.submissions);
     }
 
-    if (announcements.data && announcements.data.length > 0) {
+    if (announcements.data) {
       const remoteAnnouncements = announcements.data.map(announcementFromRow);
       const localAnnouncements = this._ls<Announcement>('eye_announcements');
       this.cache.announcements = mergeById(remoteAnnouncements, localAnnouncements, deletedAnnounceIds);
@@ -767,13 +807,15 @@ class SupabaseDatabase {
       this._lsSave('eye_announcements', this.cache.announcements);
     }
 
-    if (notifications.data && notifications.data.length > 0) {
+    if (notifications.data) {
       const remoteNotifs = notifications.data.map(notificationFromRow);
       const localNotifs = this._ls<SystemNotification>('eye_notifications');
       this.cache.notifications = mergeById(remoteNotifs, localNotifs, deletedNotifIds);
+      this._lsSave('eye_notifications', this.cache.notifications);
     } else {
       const localNotifs = this._ls<SystemNotification>('eye_notifications');
       this.cache.notifications = localNotifs.filter(n => !deletedNotifIds.includes(n.id));
+      this._lsSave('eye_notifications', this.cache.notifications);
     }
 
     if (logs.data) this.cache.logs = logs.data.map(logFromRow);
@@ -892,10 +934,53 @@ class SupabaseDatabase {
       localStorage.setItem('eye_templates', JSON.stringify(rawTemplates.filter((t: any) => !deletedTemplateIds.includes(t.id))));
     }
 
-    // Filter out permanently deleted occasions
-    const rawOccasions = this._ls<any>('eye_occasions');
-    if (rawOccasions.length > 0) {
-      localStorage.setItem('eye_occasions', JSON.stringify(rawOccasions.filter((o: any) => !deletedOccasionIds.includes(o.id))));
+    // Filter and merge occasions from Supabase cloud
+    if (occasions && occasions.data && occasions.data.length > 0) {
+      const remoteOccasions: OccasionGreeting[] = occasions.data.map(r => ({
+        id: r.id,
+        title: r.title,
+        message: r.message,
+        category: r.category || 'Custom',
+        startDate: r.start_date,
+        endDate: r.end_date,
+        icon: r.icon || '🎉',
+        bannerBg: r.banner_bg || 'from-amber-600 to-amber-800',
+        targetCommittee: r.target_committee || 'All',
+        createdBy: r.created_by,
+        createdByName: r.created_by_name,
+        createdAt: r.created_at,
+        isActive: r.is_active !== false,
+      }));
+      const localOccasions = this.getOccasions();
+      const mergedOccasions = mergeById(remoteOccasions, localOccasions, deletedOccasionIds);
+      this._lsSave('eye_occasions', mergedOccasions);
+    } else {
+      const rawOccasions = this._ls<any>('eye_occasions');
+      if (rawOccasions.length > 0) {
+        localStorage.setItem('eye_occasions', JSON.stringify(rawOccasions.filter((o: any) => !deletedOccasionIds.includes(o.id))));
+      }
+    }
+
+    // Filter and merge issued posters from Supabase cloud
+    if (issuedPosters && issuedPosters.data && issuedPosters.data.length > 0) {
+      const remotePosters: IssuedPosterRecord[] = issuedPosters.data.map(r => ({
+        id: r.id,
+        memberId: r.member_id,
+        memberName: r.member_name,
+        memberRole: r.member_role,
+        memberCommittee: r.member_committee,
+        memberAvatarUrl: r.member_avatar_url,
+        title: r.title,
+        customMsg: r.custom_msg,
+        themeColor: r.theme_color || 'blue',
+        sentBy: r.sent_by,
+        sentByName: r.sent_by_name,
+        createdAt: r.created_at,
+        governorate: r.governorate,
+      }));
+      const localPosters = this.getIssuedPosters();
+      const mergedPosters = mergeById(remotePosters, localPosters, []);
+      this._lsSave('eye_issued_posters', mergedPosters);
     }
 
     if (excusesFreezes.data) {
@@ -1003,6 +1088,8 @@ class SupabaseDatabase {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_quizzes' },        () => { this.refreshAll(); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_challenges' },     () => { this.refreshAll(); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'memory_wall' },           () => { this.refreshAll(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'occasions' },             () => { this.refreshAll(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'issued_posters' },        () => { this.refreshAll(); })
         .subscribe();
 
       console.debug('Full-platform real-time subscriptions established successfully');
@@ -1444,11 +1531,19 @@ class SupabaseDatabase {
   }
 
   async resetPassword(email: string): Promise<{ success: boolean; message: string }> {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      return { success: false, message: 'يرجى إدخال البريد الإلكتروني.' };
+    }
+    // Explicitly pass redirectTo so Supabase directs the email link to the current platform origin
+    const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}` : undefined;
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: redirectUrl,
+    });
     if (error) {
       return { success: false, message: error.message };
     }
-    return { success: true, message: `A secure reset password link has been sent to ${email}.` };
+    return { success: true, message: `A secure reset password link has been sent to ${cleanEmail}.` };
   }
 
   async updatePassword(newPassword: string): Promise<{ success: boolean; message: string }> {
@@ -1889,18 +1984,32 @@ class SupabaseDatabase {
     this._lsSave('eye_users', this.cache.users);
     this.notify();
 
-    supabase
-      .from('profiles')
-      .delete()
-      .eq('id', id)
-      .then(async () => {
-        // Also remove from auth.users so they can't log in any more.
-        // Fire-and-forget: profile row is already gone; even if the
-        // Edge Function isn't deployed yet, the auth user is just an
-        // orphan that the next bulk delete will clean up.
-        await deleteAuthUsers([id]);
-        await this.refreshAll();
-      });
+    (async () => {
+      try {
+        if (isSupabaseConfigured && supabase) {
+          // 1. Permanently delete from profiles table in Supabase
+          const { error: pErr } = await supabase.from('profiles').delete().eq('id', id);
+          if (pErr) console.warn('[deleteUser profiles error]:', pErr.message);
+
+          // 2. Cascade purge all child records across all related tables in Supabase
+          await Promise.allSettled([
+            supabase.from('notifications').delete().eq('user_id', id),
+            supabase.from('attendance').delete().eq('member_id', id),
+            supabase.from('submissions').delete().eq('member_id', id),
+            supabase.from('disciplinary_records').delete().eq('member_id', id),
+            supabase.from('excuses_freezes').delete().eq('user_id', id),
+            supabase.from('member_evaluations').delete().eq('member_id', id),
+            supabase.from('reward_purchases').delete().eq('user_id', id),
+            supabase.from('issued_posters').delete().eq('user_id', id),
+            deleteAuthUsers([id]),
+          ]);
+
+          await this.refreshAll();
+        }
+      } catch (err) {
+        console.error('[deleteUser cloud error]:', err);
+      }
+    })();
 
     this.logActivity(
       updater.id,
@@ -2369,8 +2478,8 @@ class SupabaseDatabase {
       );
     }
 
-    // Audit logging for status changes to Completed
-    const statusChangedToCompleted = previousStatus !== 'Completed' && task.status === 'Completed';
+    // Audit logging for status changes to Closed
+    const statusChangedToCompleted = previousStatus !== 'Closed' && task.status === 'Closed';
 
     if (statusChangedToCompleted) {
       this.logActivity(
@@ -2378,7 +2487,7 @@ class SupabaseDatabase {
         updater.fullName,
         updater.role,
         'Task Completion',
-        `Task "${task.name}" (${task.id}) marked as Completed.`
+        `Task "${task.name}" (${task.id}) marked as Closed.`
       );
     }
 
@@ -5959,6 +6068,23 @@ class SupabaseDatabase {
     this._lsSave('eye_occasions', updated);
     this.notify();
 
+    if (isSupabaseConfigured && supabase) {
+      supabase.from('occasions').insert({
+        id: newOcc.id,
+        title: newOcc.title,
+        message: newOcc.message,
+        category: newOcc.category,
+        start_date: newOcc.startDate,
+        end_date: newOcc.endDate,
+        icon: newOcc.icon,
+        banner_bg: newOcc.bannerBg,
+        target_committee: newOcc.targetCommittee || 'All',
+        created_by: actor.id,
+        created_by_name: actor.fullName,
+        is_active: newOcc.isActive,
+      }).then();
+    }
+
     // Broadcast push & system notifications to all members
     const users = this.getUsers().filter(u => u.status === 'Active');
     users.forEach(u => {
@@ -6026,6 +6152,150 @@ class SupabaseDatabase {
       const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return { user, daysRemaining };
     }).sort((a, b) => a.daysRemaining - b.daysRemaining);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // ISSUED SOCIAL POSTERS & GREETINGS DISPATCH
+  // ════════════════════════════════════════════════════════════════
+  getIssuedPosters(memberId?: string): IssuedPosterRecord[] {
+    const list = this._ls<IssuedPosterRecord>('eye_issued_posters');
+    if (memberId) {
+      return list.filter(p => p.memberId === memberId);
+    }
+    return list;
+  }
+
+  saveIssuedPosters(posters: IssuedPosterRecord[]): void {
+    this._lsSave('eye_issued_posters', posters);
+    this.notify();
+  }
+
+  async dispatchSocialPosters(
+    records: IssuedPosterRecord[],
+    title: string,
+    customMsg: string,
+    options: {
+      postAnnouncement?: boolean;
+      createOccasionBanner?: boolean;
+      shareToMemoryWall?: boolean;
+      category?: AnnouncementCategory;
+    },
+    actor: UserProfile
+  ): Promise<{ success: boolean; count: number }> {
+    if (!records || records.length === 0) return { success: false, count: 0 };
+
+    // 1. Save and merge poster records
+    const current = this.getIssuedPosters();
+    const updated = [...records, ...current.filter(p => !records.some(r => r.id === p.id || (r.memberId === p.memberId && r.title === p.title)))];
+    this.saveIssuedPosters(updated);
+
+    // 2. Broadcast In-App & Supabase Notifications to all targeted members
+    const targetUserIds = records.map(r => r.memberId);
+    this.addNotificationsBulk(
+      targetUserIds,
+      `🎨 ${title}`,
+      `${customMsg} — تم إصدار وتوليد بوستر إعلامي معتمد خاص بك من القيادة المركزية! ادخل لمعاينته وتحميله الآن.`,
+      'info'
+    );
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const notifPayload = targetUserIds.map(uid => ({
+          user_id: uid,
+          title: `🎨 ${title}`,
+          message: `${customMsg} — تفقد بوسترك المعتمد وقم بتحميله بجودة فائقة.`,
+          type: 'info',
+          is_read: false,
+        }));
+        await supabase.from('notifications').insert(notifPayload);
+      } catch (err) {
+        console.warn('Supabase bulk notification insert err:', err);
+      }
+    }
+
+    // Insert issued posters to Supabase table
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const posterPayload = records.map(r => ({
+          id: r.id,
+          member_id: r.memberId,
+          member_name: r.memberName,
+          member_role: r.memberRole,
+          member_committee: r.memberCommittee,
+          member_avatar_url: r.memberAvatarUrl,
+          title: r.title,
+          custom_msg: r.customMsg,
+          theme_color: r.themeColor,
+          sent_by: r.sentBy,
+          sent_by_name: r.sentByName,
+          created_at: r.createdAt,
+          governorate: r.governorate || 'الغربية',
+        }));
+        await supabase.from('issued_posters').upsert(posterPayload);
+      } catch (err) {
+        console.warn('Supabase bulk issued_posters insert err:', err);
+      }
+    }
+
+    // 3. Post General Official Announcement for EVERYONE (so it appears on announcements feed)
+    if (options.postAnnouncement !== false) {
+      const annContent = `${customMsg}\n\n✨ تهنئة وبوسترات رسمية معتمدة من كيان المصريون الشباب (EYE). يمكن لجميع الأعضاء تفقد وتحميل بطاقاتهم المخصصة من قسم صانع البوسترات والتهاني.`;
+      this.createAnnouncement(
+        title,
+        annContent,
+        'All',
+        actor,
+        true,
+        options.category || 'General',
+        'social-posters'
+      );
+    }
+
+    // 4. Create Occasion Banner (Top Celebration Banner for all)
+    if (options.createOccasionBanner) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const in7DaysStr = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+      this.createOccasion(
+        {
+          title: title,
+          message: customMsg,
+          category: 'Custom',
+          startDate: todayStr,
+          endDate: in7DaysStr,
+          icon: '🎉',
+          bannerBg: 'from-amber-600 via-amber-700 to-amber-900',
+          isActive: true,
+        },
+        actor
+      );
+    }
+
+    // 5. Share on Memory Wall
+    if (options.shareToMemoryWall) {
+      this.createMemoryPost(
+        {
+          title: `🎉 ${title}`,
+          description: customMsg,
+          imageUrl: records[0]?.memberAvatarUrl || '/eye-logo.png',
+          category: 'Event',
+          date: new Date().toISOString().split('T')[0],
+          committee: 'All',
+          createdBy: actor.id,
+          createdByName: actor.fullName,
+        },
+        actor
+      );
+    }
+
+    this.logActivity(
+      actor.id,
+      actor.fullName,
+      actor.role,
+      'Social Posters Dispatched',
+      `Dispatched official social poster "${title}" to ${records.length} members with announcements and banners.`
+    );
+
+    return { success: true, count: records.length };
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -6272,6 +6542,17 @@ class SupabaseDatabase {
     })();
     list = list.filter(r => !deletedDisciplinaryIds.includes(r.id));
 
+    if (currentUser) {
+      const isPrivileged = ['Super Admin', 'Coordinator', 'Deputy Coordinator', 'Leader', 'Vice', 'HRM'].includes(currentUser.role);
+      if (!isPrivileged) {
+        // Regular members only see their own disciplinary notices
+        return list.filter(r => 
+          r.memberId === currentUser.id || 
+          (r.memberName && r.memberName.trim().toLowerCase() === currentUser.fullName.trim().toLowerCase())
+        );
+      }
+    }
+
     const activeGov = this.getTargetGovernorate(currentUser);
     if (activeGov === 'All' || activeGov === 'المركزية') {
       return list;
@@ -6285,11 +6566,28 @@ class SupabaseDatabase {
   }
 
   addDisciplinaryRecord(record: Omit<DisciplinaryRecord, 'id' | 'issuedAt'>): DisciplinaryRecord {
+    const generateUUID = () => {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    };
+
     const full: DisciplinaryRecord = {
       ...record,
-      id: 'disc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+      id: generateUUID(),
       issuedAt: new Date().toISOString(),
     };
+
+    // Auto-resolve memberId by memberName if not explicitly provided
+    if (!full.memberId && full.memberName) {
+      const match = this.cache.users.find(u => u.fullName?.trim().toLowerCase() === full.memberName?.trim().toLowerCase());
+      if (match) {
+        full.memberId = match.id;
+      }
+    }
+
     const current = this.cache.disciplinaryRecords.length > 0 ? this.cache.disciplinaryRecords : this.getDisciplinaryRecords();
     this.cache.disciplinaryRecords = [full, ...current.filter(r => r.id !== full.id)];
     this._lsSave('eye_disciplinary_records', this.cache.disciplinaryRecords);
@@ -6298,15 +6596,33 @@ class SupabaseDatabase {
     (async () => {
       try {
         if (!isSupabaseConfigured || !supabase) return;
+        const packedReason = JSON.stringify({
+          type: full.type || (full.severity === 'Notice' ? 'lft_nazar' : 'inzar'),
+          noticeNumber: full.noticeNumber || '01',
+          meetingDay: full.meetingDay || '',
+          meetingDate: full.meetingDate || '',
+          coordinator: full.coordinator || '',
+          issuedByName: full.issuedByName || full.issuedBy || '',
+          regulationCode: full.regulationCode || 'LN-01',
+          penaltyPoints: full.penaltyPoints || 5,
+          note: full.reason || '',
+        });
+
         const payload: any = {
           id: full.id,
+          type: full.type || (full.severity === 'Notice' ? 'lft_nazar' : 'inzar'),
           member_name: full.memberName,
           committee: full.committee || null,
-          severity: full.severity,
-          reason: full.reason,
-          regulation_code: full.regulationCode,
-          penalty_points: full.penaltyPoints,
-          issued_by_name: full.issuedByName,
+          governorate: full.governorate || 'الغربية',
+          notice_number: full.noticeNumber || '01',
+          meeting_day: full.meetingDay || null,
+          meeting_date: full.meetingDate || null,
+          coordinator: full.coordinator || null,
+          severity: full.severity || (full.type === 'inzar' ? 'First Warning' : 'Notice'),
+          reason: packedReason,
+          regulation_code: full.regulationCode || 'LN-01',
+          penalty_points: full.penaltyPoints || 5,
+          issued_by_name: full.issuedByName || full.issuedBy || '',
           issued_at: full.issuedAt,
         };
         if (full.memberId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(full.memberId)) {
@@ -6324,11 +6640,16 @@ class SupabaseDatabase {
 
     // Automatically send in-app and push notification to the target member
     if (full.memberId) {
-      const docTitle = full.severity === 'Notice' ? 'لفت نظر رسمي ⚠️' : `إنذار رسمي (${full.severity}) 🔴`;
+      const isLft = full.type === 'lft_nazar' || full.severity === 'Notice';
+      const docTitle = isLft ? 'لفت نظر رسمي ⚠️' : `إنذار رسمي (${full.severity || 'إنذار'}) 🔴`;
+      const msgDetails = full.noticeNumber 
+        ? `صدر بحقك ${docTitle} (رقم المعاملة: ${full.noticeNumber}) بخصوص: ${full.reason || 'مخالفة اللائحة'}. اضغط هنا لمعاينة المستند.`
+        : `صدر بحقك ${docTitle}: ${full.reason || 'مخالفة اللائحة'} (كود: ${full.regulationCode || 'LN-01'}). اضغط هنا لمعاينة المستند.`;
+
       this.addNotification(
         full.memberId,
         docTitle,
-        `صدر بحقك ${docTitle}: ${full.reason} (كود اللائحة: ${full.regulationCode}).`,
+        msgDetails,
         'warning',
         full.id
       );

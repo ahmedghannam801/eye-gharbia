@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { db } from '../db/localDb';
 import { UserProfile, CertificateType, IssuedCertificate, getUserRoleTitle } from '../types';
-import { Award, Download, User, Star, CheckCircle, Eye, Mail, X, Search } from 'lucide-react';
+import { Award, Download, User, Star, CheckCircle, Eye, Mail, X, Search, FileText, CheckSquare, Square, Loader2 } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
-import { downloadCertificate, printCertificate, getCommitteeSignatories, formatArabicConjunctions } from '../lib/certificateGenerator';
+import { downloadCertificate, downloadBulkCertificatesAsPdf, downloadCertificateAsPdf, printCertificate, getCommitteeSignatories, formatArabicConjunctions } from '../lib/certificateGenerator';
 import QRCode from 'qrcode';
 
 interface CertificateGeneratorProps { currentUser: UserProfile; }
@@ -539,8 +539,47 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
     const ok = await downloadLiveElement(cert.id, cert.recipientName, cert.title);
     if (!ok) downloadCertificate(toCertGeneratorData(cert));
   };
+
+  const handleDownloadPdf = async (cert: IssuedCertificate) => {
+    if (cert.status === 'pending' && !canApprove) {
+      alert(ar ? '⚠️ هذه الشهادة بانتظار موافقة واقتران الإدارة (مسئول لجنة الموارد البشرية) أولاً. لا يمكن تحميلها قبل الاعتماد الرسمي.' : 'Pending admin approval.');
+      return;
+    }
+    await downloadCertificateAsPdf(toCertGeneratorData(cert));
+  };
+
   const [emailToast, setEmailToast] = useState(false);
   const [transparentLogo, setTransparentLogo] = useState<string>('/eye-logo.png');
+
+  // Multi-select & Batch PDF Export state
+  const [selectedCertIds, setSelectedCertIds] = useState<string[]>([]);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number } | null>(null);
+  const [lastBulkIssuedCerts, setLastBulkIssuedCerts] = useState<IssuedCertificate[]>([]);
+
+  const handleDownloadBatchPdf = async (certsList: IssuedCertificate[], customFilename?: string) => {
+    const validCerts = certsList.filter(c => c.status !== 'pending' || canApprove);
+    if (validCerts.length === 0) {
+      alert(ar ? 'لا توجد شهادات معتمدة جاهزة للتحميل.' : 'No approved certificates available to download.');
+      return;
+    }
+    setIsGeneratingPdf(true);
+    setPdfProgress({ current: 1, total: validCerts.length });
+    try {
+      const dataList = validCerts.map(toCertGeneratorData);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = customFilename || `شهادات_كيان_المصريون_الشباب_${dateStr}.pdf`;
+      await downloadBulkCertificatesAsPdf(dataList, filename, (current, total) => {
+        setPdfProgress({ current, total });
+      });
+    } catch (err) {
+      console.error('Failed to generate batch PDF:', err);
+      alert(ar ? 'حدث خطأ أثناء إنشاء ملف الـ PDF المجمع.' : 'Failed to export batch PDF.');
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfProgress(null);
+    }
+  };
 
   useEffect(() => {
     const img = new Image();
@@ -658,11 +697,12 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
 
       try {
         let count = 0;
+        const newlyIssued: IssuedCertificate[] = [];
         for (const recipientId of selectedRecipients) {
           const recipient = users.find(u => u.id === recipientId);
           if (!recipient) continue;
           const body = customBody || buildDefaultBody(recipientId, certType, certLang);
-          await db.issueCertificate(
+          const cert = await db.issueCertificate(
             recipient.id,
             recipient.fullName,
             recipient.role,
@@ -674,14 +714,16 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
             certGrade ? parseInt(certGrade) : undefined,
             certLang
           );
+          newlyIssued.push(cert);
           count++;
         }
         setBulkCountSuccess(count);
+        setLastBulkIssuedCerts(newlyIssued);
         setSelectedRecipients([]);
         setCustomBody('');
         setCustomTitle('');
         setCertGrade('');
-        setTimeout(() => setBulkCountSuccess(null), 5000);
+        setTimeout(() => setBulkCountSuccess(null), 8000);
       } catch (err: any) {
         console.error(err);
         setError(ar ? `فشل الإصدار الجماعي: ${err.message}` : `Bulk issue failed: ${err.message}`);
@@ -712,6 +754,68 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
     } catch (err: any) {
       console.error(err);
       setError(ar ? `فشل إصدار الشهادة وحفظها في قاعدة البيانات: ${err.message}` : `Failed to issue certificate and save to database: ${err.message}`);
+    }
+  };
+
+  const handleIssueAndDownloadBulkPdf = async () => {
+    if (selectedRecipients.length === 0) {
+      setError(ar ? 'يرجى تحديد عضو واحد على الأقل لإصدار الشهادات.' : 'Please select at least one recipient.');
+      return;
+    }
+    const isEnCert = certLang === 'en';
+    const title = certType === 'custom' ? customTitle : (isEnCert ? selectedDef.label : selectedDef.labelAr);
+    if (certType === 'custom' && !customTitle) {
+      setError(ar ? 'يرجى كتابة عنوان الشهادة.' : 'Please enter a certificate title.');
+      return;
+    }
+
+    try {
+      setIsGeneratingPdf(true);
+      setPdfProgress({ current: 0, total: selectedRecipients.length });
+      let count = 0;
+      const newlyIssued: IssuedCertificate[] = [];
+      for (let i = 0; i < selectedRecipients.length; i++) {
+        const recipientId = selectedRecipients[i];
+        const recipient = users.find(u => u.id === recipientId);
+        if (!recipient) continue;
+        const body = customBody || buildDefaultBody(recipientId, certType, certLang);
+        const cert = await db.issueCertificate(
+          recipient.id,
+          recipient.fullName,
+          recipient.role,
+          certType,
+          title,
+          body,
+          currentUser,
+          recipient.committee,
+          certGrade ? parseInt(certGrade) : undefined,
+          certLang
+        );
+        newlyIssued.push(cert);
+        count++;
+        setPdfProgress({ current: count, total: selectedRecipients.length });
+      }
+
+      setBulkCountSuccess(count);
+      setLastBulkIssuedCerts(newlyIssued);
+      setSelectedRecipients([]);
+      setCustomBody('');
+      setCustomTitle('');
+      setCertGrade('');
+
+      // Generate and download the multi-page PDF document
+      const certsData = newlyIssued.map(toCertGeneratorData);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const filename = `شهادات_دفعة_${dateStr}.pdf`;
+      await downloadBulkCertificatesAsPdf(certsData, filename, (current, total) => {
+        setPdfProgress({ current, total });
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError(ar ? `فشل الإصدار الجماعي: ${err.message}` : `Bulk issue failed: ${err.message}`);
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfProgress(null);
     }
   };
 
@@ -821,9 +925,22 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
             </div>
 
             {bulkCountSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-black text-emerald-700 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                {ar ? `🎉 تم إصدار وإرسال ${bulkCountSuccess} شهادة معتمدة بنجاح لجميع الأعضاء المحددين!` : `🎉 Successfully issued ${bulkCountSuccess} certificates to selected members!`}
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700 text-xs font-black text-emerald-800 dark:text-emerald-200 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>{ar ? `🎉 تم إصدار وإرسال ${bulkCountSuccess} شهادة معتمدة بنجاح لجميع الأعضاء المحددين!` : `🎉 Successfully issued ${bulkCountSuccess} certificates to selected members!`}</span>
+                </div>
+                {lastBulkIssuedCerts.length > 0 && canApprove && (
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadBatchPdf(lastBulkIssuedCerts, `شهادات_الدفعة_${new Date().toISOString().slice(0, 10)}.pdf`)}
+                    disabled={isGeneratingPdf}
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>{ar ? `📥 تنزيل جميع شهادات هذه الدفعة في ملف PDF واحد (${lastBulkIssuedCerts.length} شهادة)` : `📥 Download All ${lastBulkIssuedCerts.length} Certificates in Single PDF`}</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -984,17 +1101,33 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
 
 
 
-            <button onClick={handleIssue}
-              className="w-full text-white font-black py-3 rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              style={{
-                background: isBulkMode ? 'linear-gradient(135deg, #d97706, #b45309)' : (canApprove ? 'linear-gradient(135deg, #2b66ff, #1b4cd3)' : 'linear-gradient(135deg, #d97706, #b45309)'),
-                boxShadow: isBulkMode ? '0 4px 15px rgba(217,119,6,0.35)' : '0 4px 15px rgba(43,102,255,0.35)'
-              }}>
-              <Award className="w-4 h-4" />
-              {isBulkMode
-                ? (ar ? (canApprove ? `إصدار وإرسال الشهادات لـ (${selectedRecipients.length}) عضو 👥` : `إرسال طلبات اعتماد الشهادات لـ (${selectedRecipients.length}) عضو 📤`) : `Issue to (${selectedRecipients.length}) Members 👥`)
-                : (ar ? (canApprove ? 'إصدار الشهادة 📜' : 'إرسال طلب اعتماد الشهادة للإدارة 📤') : 'Issue Certificate 📜')}
-            </button>
+            <div className="space-y-2 pt-1">
+              <button onClick={handleIssue}
+                disabled={isGeneratingPdf}
+                className="w-full text-white font-black py-3 rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                style={{
+                  background: isBulkMode ? 'linear-gradient(135deg, #d97706, #b45309)' : (canApprove ? 'linear-gradient(135deg, #2b66ff, #1b4cd3)' : 'linear-gradient(135deg, #d97706, #b45309)'),
+                  boxShadow: isBulkMode ? '0 4px 15px rgba(217,119,6,0.35)' : '0 4px 15px rgba(43,102,255,0.35)'
+                }}>
+                <Award className="w-4 h-4" />
+                {isBulkMode
+                  ? (ar ? (canApprove ? `إصدار وإرسال الشهادات لـ (${selectedRecipients.length}) عضو 👥` : `إرسال طلبات اعتماد الشهادات لـ (${selectedRecipients.length}) عضو 📤`) : `Issue to (${selectedRecipients.length}) Members 👥`)
+                  : (ar ? (canApprove ? 'إصدار الشهادة 📜' : 'إرسال طلب اعتماد الشهادة للإدارة 📤') : 'Issue Certificate 📜')}
+              </button>
+
+              {isBulkMode && canApprove && selectedRecipients.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleIssueAndDownloadBulkPdf}
+                  disabled={isGeneratingPdf}
+                  className="w-full text-white font-black py-3 rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  style={{ boxShadow: '0 4px 15px rgba(43,102,255,0.35)' }}
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>{ar ? `إصدار وتحميل الكل في ملف PDF واحد (${selectedRecipients.length}) 📄` : `Issue & Download All as Single PDF (${selectedRecipients.length}) 📄`}</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Preview — updates live as you fill the form */}
@@ -1189,88 +1322,200 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
               </div>
             </div>
 
-            {db.getCertificates().filter(c =>
-              c.recipientName.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
-              c.title.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
-              c.issuedByName.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
-              (c.committee && c.committee.toLowerCase().includes(issuedSearchQuery.toLowerCase()))
-            ).length === 0 ? (
-              <div className="text-center py-12 text-slate-400">
-                <Award className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                <p className="text-xs font-bold">{ar ? 'لا توجد شهادات مطابقة للبحث' : 'No matching certificates'}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3">
-                {db.getCertificates()
-                  .filter(c =>
-                    c.recipientName.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
-                    c.title.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
-                    c.issuedByName.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
-                    (c.committee && c.committee.toLowerCase().includes(issuedSearchQuery.toLowerCase()))
-                  )
-                  .map(cert => {
-                    const def = CERT_TYPES.find(c => c.id === cert.certType);
-                    const isPending = cert.status === 'pending';
-                    const isRejected = cert.status === 'rejected';
+            {(() => {
+              const filteredCerts = db.getCertificates().filter(c =>
+                c.recipientName.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
+                c.title.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
+                c.issuedByName.toLowerCase().includes(issuedSearchQuery.toLowerCase()) ||
+                (c.committee && c.committee.toLowerCase().includes(issuedSearchQuery.toLowerCase()))
+              );
 
-                    return (
-                      <div key={cert.id} className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center justify-between gap-4 border border-slate-200/60 dark:border-slate-700">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br ${def?.color || 'from-amber-400 to-orange-500'} text-white shrink-0`}>
-                            {def?.icon || '📜'}
-                          </div>
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <p className="font-black text-slate-900 dark:text-white text-xs truncate">{cert.recipientName}</p>
-                              {isPending && (
-                                <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-300">
-                                  ⏳ بانتظار موافقة الإدارة
-                                </span>
-                              )}
-                              {isRejected && (
-                                <span className="bg-red-100 text-red-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-red-300">
-                                  ❌ مرفوضة
-                                </span>
-                              )}
-                              {!isPending && !isRejected && (
-                                <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-300">
-                                  ✅ معتمدة رسمياً
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-slate-500 truncate">{cert.title} • {cert.committee || 'عام'}</p>
-                            <p className="text-[9px] text-slate-400">
-                              {ar ? 'صادرة بواسطة' : 'By'}: {cert.issuedByName} ({new Date(cert.issuedAt).toLocaleDateString('ar-EG')})
-                            </p>
-                          </div>
-                        </div>
+              const allFilteredIds = filteredCerts.map(c => c.id);
+              const isAllSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedCertIds.includes(id));
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => handleDownload(cert)}
-                            disabled={isPending && !canApprove}
-                            className={`p-2 text-xs font-bold rounded-xl transition-all ${isPending && !canApprove ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'text-amber-600 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 cursor-pointer'}`}
-                            title={isPending && !canApprove ? (ar ? 'الشهادة بانتظار موافقة الإدارة' : 'Pending Approval') : (ar ? 'تحميل' : 'Download')}
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (window.confirm(ar ? `هل أنت تأكد من سحب/إلغاء شهادة ${cert.recipientName}؟` : `Revoke certificate for ${cert.recipientName}?`)) {
-                                await db.deleteCertificate(cert.id, currentUser);
-                              }
-                            }}
-                            className="p-2 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 rounded-xl transition-all cursor-pointer"
-                            title={ar ? 'سحب / إلغاء الشهادة' : 'Revoke Certificate'}
-                          >
-                            <span className="text-xs">🗑️</span>
-                          </button>
-                        </div>
+              return (
+                <>
+                  {/* Bulk Action Toolbar */}
+                  {filteredCerts.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800/80 p-3 rounded-2xl border border-blue-200/80 dark:border-slate-700">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isAllSelected) {
+                              setSelectedCertIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+                            } else {
+                              setSelectedCertIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-black rounded-xl hover:bg-slate-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          {isAllSelected ? (
+                            <>
+                              <CheckSquare className="w-3.5 h-3.5 text-eye-brand" />
+                              <span>{ar ? 'إلغاء تحديد الكل' : 'Deselect All'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Square className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{ar ? `تحديد الكل (${filteredCerts.length})` : `Select All (${filteredCerts.length})`}</span>
+                            </>
+                          )}
+                        </button>
+
+                        {selectedCertIds.length > 0 && (
+                          <span className="text-xs font-black text-eye-brand dark:text-blue-400 bg-blue-100/70 dark:bg-blue-950/60 px-2.5 py-1 rounded-xl">
+                            {ar ? `المحدد: ${selectedCertIds.length}` : `Selected: ${selectedCertIds.length}`}
+                          </span>
+                        )}
                       </div>
-                    );
-                  })}
-              </div>
-            )}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Download Selected as Single Multi-Page PDF */}
+                        {selectedCertIds.length > 0 && (
+                          <button
+                            type="button"
+                            disabled={isGeneratingPdf}
+                            onClick={() => {
+                              const certsToDl = db.getCertificates().filter(c => selectedCertIds.includes(c.id));
+                              handleDownloadBatchPdf(certsToDl, `شهادات_محددة_${new Date().toISOString().slice(0, 10)}.pdf`);
+                            }}
+                            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span>{ar ? `تنزيل المحددة كـ PDF مجمع (${selectedCertIds.length}) 📄` : `Download Selected as PDF (${selectedCertIds.length})`}</span>
+                          </button>
+                        )}
+
+                        {/* Download ALL Filtered as 1 Multi-Page PDF */}
+                        <button
+                          type="button"
+                          disabled={isGeneratingPdf || filteredCerts.length === 0}
+                          onClick={() => {
+                            handleDownloadBatchPdf(filteredCerts, `جميع_شهادات_الكيان_${new Date().toISOString().slice(0, 10)}.pdf`);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>{ar ? `تنزيل الكل في ملف PDF واحد (${filteredCerts.length}) 📄` : `Download All in One PDF (${filteredCerts.length})`}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredCerts.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400">
+                      <Award className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                      <p className="text-xs font-bold">{ar ? 'لا توجد شهادات مطابقة للبحث' : 'No matching certificates'}</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {filteredCerts.map(cert => {
+                        const def = CERT_TYPES.find(c => c.id === cert.certType);
+                        const isPending = cert.status === 'pending';
+                        const isRejected = cert.status === 'rejected';
+                        const isSelected = selectedCertIds.includes(cert.id);
+
+                        return (
+                          <div
+                            key={cert.id}
+                            className={`bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center justify-between gap-4 border transition-all ${
+                              isSelected ? 'border-amber-400 dark:border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 shadow-xs' : 'border-slate-200/60 dark:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedCertIds(prev =>
+                                    prev.includes(cert.id) ? prev.filter(id => id !== cert.id) : [...prev, cert.id]
+                                  );
+                                }}
+                                className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer shrink-0"
+                              />
+
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-gradient-to-br ${def?.color || 'from-amber-400 to-orange-500'} text-white shrink-0 shadow-xs`}>
+                                {def?.icon || '📜'}
+                              </div>
+
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-black text-slate-900 dark:text-white text-xs truncate">{cert.recipientName}</p>
+                                  {isPending && (
+                                    <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-300">
+                                      ⏳ بانتظار موافقة الإدارة
+                                    </span>
+                                  )}
+                                  {isRejected && (
+                                    <span className="bg-red-100 text-red-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-red-300">
+                                      ❌ مرفوضة
+                                    </span>
+                                  )}
+                                  {!isPending && !isRejected && (
+                                    <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-300">
+                                      ✅ معتمدة رسمياً
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 truncate">{cert.title} • {cert.committee || 'عام'}</p>
+                                <p className="text-[9px] text-slate-400">
+                                  {ar ? 'صادرة بواسطة' : 'By'}: {cert.issuedByName} ({new Date(cert.issuedAt).toLocaleDateString('ar-EG')})
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {/* PDF Download Button */}
+                              <button
+                                onClick={() => handleDownloadPdf(cert)}
+                                disabled={isPending && !canApprove}
+                                className={`px-2.5 py-1.5 text-[11px] font-black rounded-xl transition-all flex items-center gap-1 ${
+                                  isPending && !canApprove
+                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'text-blue-700 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer'
+                                }`}
+                                title={isPending && !canApprove ? (ar ? 'الشهادة بانتظار موافقة الإدارة' : 'Pending Approval') : (ar ? 'تحميل كـ PDF' : 'Download PDF')}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">PDF</span>
+                              </button>
+
+                              {/* PNG Download Button */}
+                              <button
+                                onClick={() => handleDownload(cert)}
+                                disabled={isPending && !canApprove}
+                                className={`px-2.5 py-1.5 text-[11px] font-black rounded-xl transition-all flex items-center gap-1 ${
+                                  isPending && !canApprove
+                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'text-amber-700 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 cursor-pointer'
+                                }`}
+                                title={isPending && !canApprove ? (ar ? 'الشهادة بانتظار موافقة الإدارة' : 'Pending Approval') : (ar ? 'تحميل كصورة PNG' : 'Download PNG')}
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">PNG</span>
+                              </button>
+
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm(ar ? `هل أنت تأكد من سحب/إلغاء شهادة ${cert.recipientName}؟` : `Revoke certificate for ${cert.recipientName}?`)) {
+                                    await db.deleteCertificate(cert.id, currentUser);
+                                  }
+                                }}
+                                className="p-1.5 text-xs font-bold text-red-600 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 rounded-xl transition-all cursor-pointer"
+                                title={ar ? 'سحب / إلغاء الشهادة' : 'Revoke Certificate'}
+                              >
+                                <span className="text-xs">🗑️</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1418,6 +1663,33 @@ export const CertificateGenerator: React.FC<CertificateGeneratorProps> = ({ curr
                   {ar ? 'إغلاق' : 'Close'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BATCH PDF GENERATION PROGRESS MODAL */}
+      {isGeneratingPdf && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-eye-brand flex items-center justify-center">
+              <FileText className="w-7 h-7 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-black text-sm text-slate-900 dark:text-white">
+                {ar ? 'جاري تجميع وتوليد ملف الـ PDF المجمع...' : 'Generating Batch PDF Document...'}
+              </h4>
+              {pdfProgress && (
+                <p className="text-xs text-slate-500 font-bold">
+                  {ar ? `معالجة الشهادة ${pdfProgress.current} من أصل ${pdfProgress.total}` : `Processing ${pdfProgress.current} of ${pdfProgress.total}`}
+                </p>
+              )}
+            </div>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full transition-all duration-300 rounded-full"
+                style={{ width: `${pdfProgress && pdfProgress.total > 0 ? (pdfProgress.current / pdfProgress.total) * 100 : 50}%` }}
+              />
             </div>
           </div>
         </div>

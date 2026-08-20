@@ -203,6 +203,7 @@ export interface Task {
   videoUrl?: string;
   assignedMemberIds?: string[]; // IDs of specific members assigned to this task
   targetAudience?: 'all_committee' | 'department' | 'specific_members';
+  governorate?: string;
   comments?: TaskComment[];
 }
 
@@ -275,13 +276,18 @@ export interface Announcement {
 export interface MemoryPost {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   imageUrl: string;
-  category: string; // e.g. 'Event' | 'Achievement' | 'Gathering' | 'Workshop'
+  category?: string; // e.g. 'Event' | 'Achievement' | 'Gathering' | 'Workshop'
   committee?: string;
-  date: string;
-  createdBy: string;
-  createdByName: string;
+  date?: string;
+  createdBy?: string;
+  createdByName?: string;
+  authorId?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  authorRole?: string;
+  caption?: string;
   createdAt: string;
   likes?: string[]; // Array of user IDs
 }
@@ -1017,4 +1023,21 @@ export interface DisciplinaryRecord {
   reason?: string;
   regulationCode?: string;
   penaltyPoints?: number;
+}
+
+// ─── Issued Social Poster Record ─────────────────────────────────────────────
+export interface IssuedPosterRecord {
+  id: string;
+  memberId: string;
+  memberName: string;
+  memberRole?: string;
+  memberCommittee?: string;
+  memberAvatarUrl?: string;
+  title: string;
+  customMsg: string;
+  themeColor: 'blue' | 'gold' | 'emerald' | 'purple';
+  sentBy: string;
+  sentByName: string;
+  createdAt: string;
+  governorate?: string;
 }

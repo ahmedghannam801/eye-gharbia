@@ -1,46 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, IssuedPosterRecord } from '../types';
 import { db } from '../db/localDb';
-import { supabase } from '../lib/supabaseClient';
 import { useLanguage } from '../lib/LanguageContext';
 import {
   Palette,
   Download,
   Sparkles,
   User,
-  Image as ImageIcon,
-  Star,
-  Crown,
-  ShieldCheck,
   CheckSquare,
   Square,
   Users,
   Send,
   Check,
   Loader2,
-  Filter,
   Award,
   HeartHandshake,
-  Calendar,
   Trash2,
-  Eye,
-  Lock
+  Megaphone,
+  Share2,
+  ShieldCheck,
+  Eye
 } from 'lucide-react';
-
-export interface IssuedPosterRecord {
-  id: string;
-  memberId: string;
-  memberName: string;
-  memberRole?: string;
-  memberCommittee?: string;
-  memberAvatarUrl?: string;
-  title: string;
-  customMsg: string;
-  themeColor: 'blue' | 'gold' | 'emerald' | 'purple';
-  sentBy: string;
-  sentByName: string;
-  createdAt: string;
-}
 
 interface SocialPosterMakerProps {
   currentUser: UserProfile;
@@ -50,13 +30,22 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
   const { language, isRtl, translateCommittee } = useLanguage();
   const isAr = language === 'ar';
 
-  // Only Super Admin & Coordinator have authority to create & dispatch posters
-  const isSuperAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Coordinator';
+  // Authority check: Super Admin, Vice, Coordinator, Deputy Coordinator, Leader, HRM, Central, Head
+  const canDispatch = [
+    'Super Admin',
+    'Vice',
+    'Coordinator',
+    'Deputy Coordinator',
+    'Leader',
+    'HRM',
+    'Central',
+    'Head',
+  ].includes(currentUser?.role);
 
   const allUsers = db.getUsers().filter(u => u.status === 'Active');
 
-  // Selection Mode (for Super Admin)
-  const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>('single');
+  // Selection Mode: 'single' | 'multiple' | 'all'
+  const [selectionMode, setSelectionMode] = useState<'single' | 'multiple' | 'all'>('single');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(allUsers[0]?.id || currentUser.id);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([allUsers[0]?.id || currentUser.id]);
   const [previewMemberId, setPreviewMemberId] = useState<string>(allUsers[0]?.id || currentUser.id);
@@ -71,33 +60,30 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
   const [customMsg, setCustomMsg] = useState('نعتز بانضمامك لفريق عمل الكيان وتمنياتنا بدوام التوفيق والتميز.');
   const [themeColor, setThemeColor] = useState<ThemeColor>('blue');
 
+  // Multi-Channel Broadcast Channels State
+  const [postAnnouncement, setPostAnnouncement] = useState(true);
+  const [createOccasionBanner, setCreateOccasionBanner] = useState(true);
+  const [shareToMemoryWall, setShareToMemoryWall] = useState(false);
+
   // Progress State
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateProgress, setGenerateProgress] = useState('');
   const [successToast, setSuccessToast] = useState('');
 
-  // Persistent Issued Posters state
+  // Persistent Issued Posters state from localDb + realtime subscription
   const [issuedPosters, setIssuedPosters] = useState<IssuedPosterRecord[]>([]);
 
-  // Load issued posters on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('eye_issued_posters');
-      if (stored) {
-        setIssuedPosters(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.warn('Failed to load issued posters:', e);
-    }
+    setIssuedPosters(db.getIssuedPosters());
+    const unsub = db.onChange(() => {
+      setIssuedPosters(db.getIssuedPosters());
+    });
+    return () => unsub();
   }, []);
 
   const saveIssuedPosters = (updated: IssuedPosterRecord[]) => {
     setIssuedPosters(updated);
-    try {
-      localStorage.setItem('eye_issued_posters', JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Failed to save issued posters:', e);
-    }
+    db.saveIssuedPosters(updated);
   };
 
   // Filtered users for multi-select list
@@ -135,7 +121,12 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
     if (idsToKeep.length > 0) setPreviewMemberId(idsToKeep[0]);
   };
 
-  const activePreviewUser = allUsers.find(u => u.id === (selectionMode === 'single' ? selectedMemberId : previewMemberId)) || currentUser;
+  const activePreviewUser =
+    selectionMode === 'all'
+      ? allUsers.find(u => u.id === previewMemberId) || currentUser
+      : selectionMode === 'single'
+      ? allUsers.find(u => u.id === selectedMemberId) || currentUser
+      : allUsers.find(u => u.id === previewMemberId) || currentUser;
 
   // Render poster for a single member on canvas and trigger PNG download
   const generatePosterForMember = (
@@ -267,11 +258,14 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
     });
   };
 
-  // Bulk download handler for Super Admin
+  // Bulk download handler
   const handleBulkDownloadPosters = async () => {
-    const targetUsers = selectionMode === 'single'
-      ? [allUsers.find(u => u.id === selectedMemberId) || currentUser]
-      : allUsers.filter(u => selectedMemberIds.includes(u.id));
+    const targetUsers =
+      selectionMode === 'all'
+        ? allUsers
+        : selectionMode === 'single'
+        ? [allUsers.find(u => u.id === selectedMemberId) || currentUser]
+        : allUsers.filter(u => selectedMemberIds.includes(u.id));
 
     if (targetUsers.length === 0) return;
 
@@ -299,19 +293,37 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
     setTimeout(() => setSuccessToast(''), 4000);
   };
 
-  // Send Push, System Notifications, and save official issued posters
+  // Full Multi-Channel Broadcast Handler (Omnichannel Dispatch)
   const handleSendBulkNotifications = async () => {
-    const targetUsers = selectionMode === 'single'
-      ? [allUsers.find(u => u.id === selectedMemberId) || currentUser]
-      : allUsers.filter(u => selectedMemberIds.includes(u.id));
+    const targetUsers =
+      selectionMode === 'all'
+        ? allUsers
+        : selectionMode === 'single'
+        ? [allUsers.find(u => u.id === selectedMemberId) || currentUser]
+        : allUsers.filter(u => selectedMemberIds.includes(u.id));
 
     if (targetUsers.length === 0) return;
 
+    const channelsSummary: string[] = [];
+    channelsSummary.push(isAr ? `• إرسال إشعارات فورية وحفظ البوستر لـ (${targetUsers.length}) عضو 📲` : `• In-app notifications to ${targetUsers.length} members`);
+    if (postAnnouncement) {
+      channelsSummary.push(isAr ? '• نشر إعلان وتعميم رسمي على لوحة إعلانات المنصة للجميع 📢' : '• Official announcement for all members');
+    }
+    if (createOccasionBanner) {
+      channelsSummary.push(isAr ? '• تفعيل شريط التهنئة البارز بأعلى المنصة للجميع 🎊' : '• Top occasion banner on dashboard');
+    }
+    if (shareToMemoryWall) {
+      channelsSummary.push(isAr ? '• مشاركة على حائط الذكريات للتفاعل والمباركة 🖼️' : '• Share to Memory Wall');
+    }
+
     const confirmMsg = isAr
-      ? `هل أنت متأكد من اعتماد وإرسال البوستر الرسمي لعدد (${targetUsers.length}) عضو في المنصة؟ سيتم حفظه بحساباتهم ليتمكنوا من مشاهدته وتحميله.`
-      : `Dispatch official posters and notifications to (${targetUsers.length}) members?`;
+      ? `هل أنت متأكد من اعتماد وإرسال وتعميم هذه التهنئة والبوستر الرسمي؟\n\nالقنوات التي سيتم البث عبرها:\n${channelsSummary.join('\n')}`
+      : `Dispatch official posters to (${targetUsers.length}) members across selected channels?`;
 
     if (!confirm(confirmMsg)) return;
+
+    setIsGenerating(true);
+    setGenerateProgress(isAr ? 'جاري التعميم والإرسال لكافة الأعضاء عبر القنوات المحددة...' : 'Broadcasting across channels...');
 
     const now = new Date().toISOString();
     const newRecords: IssuedPosterRecord[] = targetUsers.map(u => ({
@@ -329,42 +341,28 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
       createdAt: now,
     }));
 
-    // Update persistent state
-    const existing = issuedPosters.filter(p => !targetUsers.some(u => u.id === p.memberId));
-    const combined = [...newRecords, ...existing];
-    saveIssuedPosters(combined);
-
-    // Send in-app system notifications
-    const targetUserIds = targetUsers.map(u => u.id);
-    db.addNotificationsBulk(
-      targetUserIds,
-      `🎨 تم إصدار بوسترك الرسمي: ${posterTitle}`,
-      `${customMsg} — تم إصدار وتوليد بوستر إعلامي معتمد خاص بك من القيادة المركزية! ادخل لمعاينته وتحميله الآن.`,
-      'info'
+    await db.dispatchSocialPosters(
+      newRecords,
+      posterTitle,
+      customMsg,
+      {
+        postAnnouncement,
+        createOccasionBanner,
+        shareToMemoryWall,
+      },
+      currentUser
     );
 
-    // Also send Supabase notifications if connected
-    if (supabase) {
-      try {
-        const notifs = targetUserIds.map(uid => ({
-          user_id: uid,
-          title: `🎨 تم إصدار بوسترك الرسمي: ${posterTitle}`,
-          message: `${customMsg} — تفقد بوسترك المعتمد وقم بتحميله بجودة عالية.`,
-          type: 'info',
-          is_read: false,
-        }));
-        await supabase.from('notifications').insert(notifs);
-      } catch (err) {
-        console.warn('Supabase poster notification err:', err);
-      }
-    }
+    setIssuedPosters(db.getIssuedPosters());
+    setIsGenerating(false);
+    setGenerateProgress('');
 
     setSuccessToast(
       isAr
-        ? `تم اعتماد وإرسال البوسترات والإشعارات لـ (${targetUsers.length}) عضو بنجاح! 📲`
-        : `Official posters dispatched to (${targetUsers.length}) members!`
+        ? `🎉 تم إرسال وتعميم التهنئة والبوسترات بنجاح لـ (${targetUsers.length}) عضو ووصلت لجميع القنوات المحددة!`
+        : `Dispatched posters to (${targetUsers.length}) members successfully!`
     );
-    setTimeout(() => setSuccessToast(''), 4000);
+    setTimeout(() => setSuccessToast(''), 5000);
   };
 
   const handleDeleteIssuedPoster = (id: string) => {
@@ -420,10 +418,9 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
   const previewStyles = getThemePreviewStyles(themeColor);
 
   // ══════════════════════════════════════════════════════════════
-  // VIEW FOR REGULAR MEMBERS / LEADERS (Non-Super Admin)
-  // They only see and download posters that the Admin sent to them!
+  // VIEW FOR REGULAR MEMBERS
   // ══════════════════════════════════════════════════════════════
-  if (!isSuperAdmin) {
+  if (!canDispatch) {
     const myPosters = issuedPosters.filter(p => p.memberId === currentUser.id);
 
     return (
@@ -505,20 +502,30 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
             })}
           </div>
         ) : (
-          /* Empty State: No poster issued yet */
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm flex flex-col items-center justify-center min-h-[360px]">
-            <div className="w-16 h-16 rounded-3xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
-              <Palette className="w-8 h-8" />
-            </div>
-            <div className="space-y-1.5 max-w-md">
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                {isAr ? 'لم يتم إصدار بوستر رسمي لحسابك حتى الآن ✨' : 'No official poster issued yet'}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                {isAr
-                  ? 'يتم إصدار البوسترات الإعلامية وكروت التهنئة حصرياً من القيادة المركزية وإدارة الموارد البشرية. فور صدور بوستر رسمي خاص بك، ستتلقى إشعاراً فورياً وسيظهر هنا لتتمكن من تحميله ونشره على حساباتك.'
-                  : 'Official posters and congratulatory graphics are issued exclusively by leadership. Once approved, your personalized poster will appear here for download.'}
-              </p>
+          /* Empty State + Custom Member Badge Generator */
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-3xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
+                <Palette className="w-8 h-8" />
+              </div>
+              <div className="space-y-1.5 max-w-md">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  {isAr ? 'بطاقة عضويتك الرسمية في الكيان ✨' : 'Your Official EYE Member Badge'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  {isAr
+                    ? 'يمكنك معاينة وتحميل بطاقة وبوستر عضويتك المعتمد في كيان EYE بالدقة الكاملة لنشره على وسائل التواصل الاجتماعي.'
+                    : 'Download your high-resolution official membership poster.'}
+                </p>
+              </div>
+
+              <button
+                onClick={() => generatePosterForMember(currentUser, 'blue', 'عضو معتمد في كيان المصريون الشباب 🌟', 'فخور بانضمامي لأسرة كيان EYE متمنياً دوام التميز والنجاح.')}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isAr ? 'تحميل بوستر عضويتي الآن (PNG) 📥' : 'Download My Member Poster 📥'}</span>
+              </button>
             </div>
           </div>
         )}
@@ -527,8 +534,7 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
   }
 
   // ══════════════════════════════════════════════════════════════
-  // VIEW FOR SUPER ADMIN ONLY
-  // Full Creation, Customization, Live Preview, and Dispatch Suite
+  // VIEW FOR LEADERSHIP & ADMINS (Full Suite)
   // ══════════════════════════════════════════════════════════════
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-5xl mx-auto animate-fade-in text-start" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -537,21 +543,24 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
         <div className="space-y-1 max-w-2xl">
           <div className="flex items-center gap-2 text-blue-400 font-bold text-xs">
             <Palette className="w-4 h-4" />
-            <span>{isAr ? 'صانع البوسترات والبوستات الرسمية للكيان (صلاحية الإدارة)' : 'EYE Social Poster Builder (Admin)'}</span>
+            <span>{isAr ? 'صانع البوسترات والتهاني الرسمية للكيان' : 'EYE Social Poster & Greetings Builder'}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2">
-            <span>{isAr ? 'مولد كروت وبوسترات التواصل الاجتماعي 🎨✨' : 'Social Media Poster Maker 🎨✨'}</span>
+            <span>{isAr ? 'مولد كروت وبوسترات التواصل الاجتماعي والتهاني 🎨✨' : 'Social Media Poster & Greetings Maker 🎨✨'}</span>
           </h1>
           <p className="text-xs text-blue-200/80 font-medium leading-relaxed">
-            {isAr ? 'توليد بوسترات ترحيب بالأعضاء وتكريم الفائزين وإرسالها مباشرة لحساباتهم بدقة عالية 1080x1080.' : 'Generate high-res 1080x1080 posters for multiple members at once.'}
+            {isAr
+              ? 'توليد بوسترات ترحيب وتكريم وتهنئة، مع إمكانية تعميمها وإرسالها فوراً لجميع الأعضاء (إشعارات + لوحة الإعلانات + شريط التهاني العلوي).'
+              : 'Generate and broadcast high-res greeting & recognition posters across all platform channels.'}
           </p>
         </div>
 
-        {/* Action Buttons arranged horizontally side-by-side */}
+        {/* Action Buttons */}
         <div className="flex flex-row items-center gap-3 w-full flex-wrap justify-center sm:w-auto">
           <button
             onClick={handleSendBulkNotifications}
-            className="px-5 py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-black text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2.5 border border-amber-300/40 cursor-pointer"
+            disabled={isGenerating}
+            className="px-5 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 font-black text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2.5 border border-amber-300/40 cursor-pointer disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
             <span>{isAr ? 'إرسال وتعميم للأعضاء 📲' : 'Dispatch to Members 📲'}</span>
@@ -564,7 +573,9 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
           >
             {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
             <span>
-              {selectionMode === 'single'
+              {selectionMode === 'all'
+                ? (isAr ? `تحميل لكل الأعضاء (${allUsers.length}) 📥` : `Download All (${allUsers.length}) 📥`)
+                : selectionMode === 'single'
                 ? (isAr ? 'تحميل البوستر (PNG) 📥' : 'Download PNG 📥')
                 : (isAr ? `تحميل البوسترات (${selectedMemberIds.length}) 📥` : `Download Posters (${selectedMemberIds.length}) 📥`)}
             </span>
@@ -592,40 +603,65 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Left: Controls & Selection Form */}
         <div className="md:col-span-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 rounded-3xl space-y-5 shadow-sm">
-          {/* 1. Mode Switcher: Single Member vs Multi-Select */}
+          {/* 1. Mode Switcher: Single vs Multiple vs All */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{isAr ? '1. طريقة التحديد والإنتاج' : '1. Selection Mode'}</label>
-            <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{isAr ? '1. نطاق الإرسال والمستهدفين' : '1. Target Scope'}</label>
+            <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setSelectionMode('single')}
-                className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   selectionMode === 'single'
                     ? 'bg-blue-600 text-white shadow-md font-black'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
-                <span>{isAr ? 'عضو واحد فردي' : 'Single Member'}</span>
+                <span>{isAr ? 'عضو فردي' : 'Single'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setSelectionMode('multiple')}
-                className={`py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`py-2 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   selectionMode === 'multiple'
                     ? 'bg-purple-600 text-white shadow-md font-black'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>{isAr ? 'عدة أعضاء في وقت واحد 👥' : 'Multiple Members'}</span>
+                <span>{isAr ? 'مجموعة 👥' : 'Group'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectionMode('all')}
+                className={`py-2 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  selectionMode === 'all'
+                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{isAr ? 'الكل 📢' : 'Everyone'}</span>
               </button>
             </div>
           </div>
 
           {/* 2. MEMBER SELECTION PANEL */}
-          {selectionMode === 'single' ? (
+          {selectionMode === 'all' ? (
+            <div className="p-3.5 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent rounded-2xl border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold space-y-1">
+              <div className="flex items-center gap-2 font-black text-amber-800 dark:text-amber-200">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span>{isAr ? `إصدار وتعميم لجميع أعضاء الكيان بالكامل (${allUsers.length} عضو) 🌟` : `Broadcasting to all (${allUsers.length}) members!`}</span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                {isAr
+                  ? 'سيتم توليد وحفظ بوستر مخصص باسم كل عضو، وإرسال إشعار فوري بحسابه ونشر التهنئة في لوحة الإعلانات والشريط العلوي.'
+                  : 'A personalized poster will be issued for each member and notifications dispatched across the platform.'}
+              </p>
+            </div>
+          ) : selectionMode === 'single' ? (
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">{isAr ? '2. العضو المعني بالبوستر' : '2. Select Member'}</label>
               <select
@@ -647,7 +683,7 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
               <div className="flex items-center justify-between">
                 <span className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-purple-500" />
-                  <span>{isAr ? '2. قائمة تحديد الأعضاء (تحديد جماعي):' : '2. Select Multiple Members:'}</span>
+                  <span>{isAr ? '2. قائمة تحديد الأعضاء:' : '2. Select Multiple Members:'}</span>
                 </span>
                 <span className="bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-purple-200 dark:border-purple-800">
                   {isAr ? `محدد (${selectedMemberIds.length})` : `Selected (${selectedMemberIds.length})`}
@@ -705,7 +741,7 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
               </div>
 
               {/* Scrollable Members Checkboxes List */}
-              <div className="max-h-52 overflow-y-auto space-y-1.5 pe-1 pt-1 scrollbar-thin border-t border-slate-200 dark:border-slate-700">
+              <div className="max-h-48 overflow-y-auto space-y-1.5 pe-1 pt-1 scrollbar-thin border-t border-slate-200 dark:border-slate-700">
                 {filteredUsers.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-4">{isAr ? 'لا يوجد أعضاء ينطبق عليهم التصفية' : 'No members found'}</p>
                 ) : (
@@ -765,7 +801,7 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
             </div>
           )}
 
-          {/* 3. Theme Selection (4 Colors) */}
+          {/* 3. Theme Selection */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-500 uppercase">{isAr ? '3. نمط الألوان الرسمي' : '3. Theme Color'}</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -825,7 +861,7 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
 
           {/* 4. POSTER TITLE BADGE INPUT */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">{isAr ? '4. عنوان البوستر' : '4. Poster Title Badge'}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">{isAr ? '4. عنوان البوستر / المناسبة' : '4. Poster Title Badge'}</label>
             <input
               type="text"
               value={posterTitle}
@@ -843,6 +879,60 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
               rows={3}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-semibold text-slate-900 dark:text-white resize-none focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
+          </div>
+
+          {/* 6. BROADCAST CHANNELS MULTI-SELECT */}
+          <div className="space-y-2.5 p-4 bg-amber-500/10 dark:bg-amber-950/30 rounded-2xl border border-amber-500/30">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-amber-500" />
+                <span>{isAr ? '6. قنوات التعميم والإرسال الفوري للجميع' : '6. Broadcast Channels'}</span>
+              </label>
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-black bg-amber-200/50 dark:bg-amber-900/50 px-2 py-0.5 rounded-full">
+                {isAr ? 'وصول شامل 📡' : 'Omnichannel'}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <label className="flex items-start gap-2.5 text-slate-800 dark:text-slate-200 font-bold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={postAnnouncement}
+                  onChange={e => setPostAnnouncement(e.target.checked)}
+                  className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 mt-0.5"
+                />
+                <span className="text-[11px] leading-relaxed">
+                  <strong className="text-amber-600 dark:text-amber-400">📢 {isAr ? 'نشر إعلان وتعميم رسمي:' : 'Official Announcement:'} </strong>
+                  {isAr ? 'يظهر الإعلان للجميع في صفحة التعاميم واللوحة الرئيسية مع إشعار باللون الأحمر.' : 'Appears on announcements feed for all members.'}
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 text-slate-800 dark:text-slate-200 font-bold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={createOccasionBanner}
+                  onChange={e => setCreateOccasionBanner(e.target.checked)}
+                  className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 mt-0.5"
+                />
+                <span className="text-[11px] leading-relaxed">
+                  <strong className="text-amber-600 dark:text-amber-400">🎊 {isAr ? 'تفعيل شريط التهنئة البارز بأعلى المنصة:' : 'Occasion Top Banner:'} </strong>
+                  {isAr ? 'يضيء شريط التهنئة والاحتفال المتحرك في قمة المنصة لجميع الأعضاء لمدة 7 أيام.' : 'Displays festive banner on top of dashboard for 7 days.'}
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 text-slate-800 dark:text-slate-200 font-bold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={shareToMemoryWall}
+                  onChange={e => setShareToMemoryWall(e.target.checked)}
+                  className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 mt-0.5"
+                />
+                <span className="text-[11px] leading-relaxed">
+                  <strong className="text-amber-600 dark:text-amber-400">🖼️ {isAr ? 'مشاركة على حائط الذكريات:' : 'Memory Wall Post:'} </strong>
+                  {isAr ? 'نشر التهنئة على حائط الذكريات ليتفاعل الأعضاء بالتعليقات والمباركات والإعجابات.' : 'Post to memory wall for community likes and comments.'}
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -884,7 +974,7 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Award className="w-4 h-4 text-amber-500" />
-              <span>{isAr ? `سجل البوسترات الصادرة المعتمدة (${issuedPosters.length})` : `Issued Posters Registry (${issuedPosters.length})`}</span>
+              <span>{isAr ? `سجل البوسترات والتهاني الصادرة المعتمدة (${issuedPosters.length})` : `Issued Posters Registry (${issuedPosters.length})`}</span>
             </h3>
           </div>
 
@@ -931,4 +1021,3 @@ export const SocialPosterMaker: React.FC<SocialPosterMakerProps> = ({ currentUse
     </div>
   );
 };
-

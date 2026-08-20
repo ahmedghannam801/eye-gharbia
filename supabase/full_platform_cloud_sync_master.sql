@@ -1,11 +1,13 @@
 -- ============================================================
--- EYE Workflow Hub — MASTER PLATFORM CLOUD SCHEMA & SYNC
+-- EYE Workflow Hub — MASTER PLATFORM CLOUD SCHEMA & SYNC (v5.0)
 -- Run in Supabase SQL Editor. Fully idempotent & safe to re-run.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ---------- 1. PROFILES TABLE ----------
+-- ============================================================
+-- 1. PROFILES TABLE
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   full_name text NOT NULL,
@@ -20,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   joined_date date DEFAULT now(),
   bio text,
   governorate text DEFAULT 'الغربية',
+  date_of_birth date,
   skills text[] DEFAULT '{}',
   endorsements jsonb DEFAULT '{}',
   points integer DEFAULT 0,
@@ -27,9 +30,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at timestamptz DEFAULT now()
 );
 
--- Ensure all columns on profiles
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية',
+  ADD COLUMN IF NOT EXISTS date_of_birth date,
   ADD COLUMN IF NOT EXISTS skills text[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS endorsements jsonb DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS points integer DEFAULT 0,
@@ -37,9 +40,12 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS membership_code text,
   ADD COLUMN IF NOT EXISTS avatar_url text,
   ADD COLUMN IF NOT EXISTS bio text,
-  ADD COLUMN IF NOT EXISTS date_of_birth date;
+  ADD COLUMN IF NOT EXISTS status text DEFAULT 'Active',
+  ADD COLUMN IF NOT EXISTS role text DEFAULT 'Member';
 
--- ---------- 2. TASKS & SUBMISSIONS ----------
+-- ============================================================
+-- 2. TASKS & SUBMISSIONS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -63,7 +69,8 @@ CREATE TABLE IF NOT EXISTS public.tasks (
   is_video_task boolean DEFAULT false,
   video_url text,
   subtasks jsonb DEFAULT '[]',
-  is_team_task boolean DEFAULT false
+  is_team_task boolean DEFAULT false,
+  comments jsonb DEFAULT '[]'
 );
 
 ALTER TABLE public.tasks
@@ -73,7 +80,8 @@ ALTER TABLE public.tasks
   ADD COLUMN IF NOT EXISTS is_video_task boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS video_url text,
   ADD COLUMN IF NOT EXISTS subtasks jsonb DEFAULT '[]',
-  ADD COLUMN IF NOT EXISTS is_team_task boolean DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_team_task boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS comments jsonb DEFAULT '[]';
 
 CREATE TABLE IF NOT EXISTS public.submissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -96,7 +104,8 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   governorate text DEFAULT 'الغربية',
   completed_subtasks text[] DEFAULT '{}',
   grade integer,
-  grading_criteria jsonb DEFAULT '{}'
+  grading_criteria jsonb DEFAULT '{}',
+  evaluation_metrics jsonb DEFAULT '{}'
 );
 
 ALTER TABLE public.submissions
@@ -104,29 +113,40 @@ ALTER TABLE public.submissions
   ADD COLUMN IF NOT EXISTS completed_subtasks text[] DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS grade integer,
   ADD COLUMN IF NOT EXISTS grading_criteria jsonb DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS evaluation_metrics jsonb DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS history jsonb DEFAULT '[]',
   ADD COLUMN IF NOT EXISTS submission_id_code text;
 
--- ---------- 3. ANNOUNCEMENTS & NOTIFICATIONS ----------
+-- ============================================================
+-- 3. ANNOUNCEMENTS & NOTIFICATIONS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.announcements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   content text,
   committee text DEFAULT 'All',
+  target_department text DEFAULT 'All',
   created_by uuid,
   created_by_name text,
   created_date timestamptz DEFAULT now(),
   is_pinned boolean DEFAULT false,
   governorate text DEFAULT 'الغربية',
   banner_url text,
-  reactions jsonb DEFAULT '{}'
+  reactions jsonb DEFAULT '{}',
+  category text DEFAULT 'General',
+  target_url text,
+  target_role text DEFAULT 'All'
 );
 
 ALTER TABLE public.announcements
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية',
   ADD COLUMN IF NOT EXISTS banner_url text,
   ADD COLUMN IF NOT EXISTS reactions jsonb DEFAULT '{}',
-  ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_pinned boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS category text DEFAULT 'General',
+  ADD COLUMN IF NOT EXISTS target_url text,
+  ADD COLUMN IF NOT EXISTS target_role text DEFAULT 'All',
+  ADD COLUMN IF NOT EXISTS target_department text DEFAULT 'All';
 
 CREATE TABLE IF NOT EXISTS public.notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -144,7 +164,9 @@ ALTER TABLE public.notifications
   ADD COLUMN IF NOT EXISTS type text DEFAULT 'info',
   ADD COLUMN IF NOT EXISTS is_read boolean DEFAULT false;
 
--- ---------- 4. MEETINGS & ATTENDANCE ----------
+-- ============================================================
+-- 4. MEETINGS & ATTENDANCE
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.meetings (
   id text PRIMARY KEY,
   title text NOT NULL,
@@ -185,7 +207,9 @@ ALTER TABLE public.attendance
   ADD COLUMN IF NOT EXISTS excuse_reason text,
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 5. EXCUSES & FREEZE REQUESTS ----------
+-- ============================================================
+-- 5. EXCUSES & FREEZE REQUESTS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.excuses_freezes (
   id text PRIMARY KEY,
   user_id uuid,
@@ -196,7 +220,7 @@ CREATE TABLE IF NOT EXISTS public.excuses_freezes (
   reason text NOT NULL,
   start_date timestamptz NOT NULL,
   end_date timestamptz,
-  status text NOT NULL DEFAULT 'Pending', -- 'Pending', 'Approved', 'Rejected'
+  status text NOT NULL DEFAULT 'Pending',
   decision_by uuid,
   decision_by_name text,
   decision_notes text,
@@ -207,7 +231,9 @@ CREATE TABLE IF NOT EXISTS public.excuses_freezes (
 ALTER TABLE public.excuses_freezes
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 6. ISSUED CERTIFICATES ----------
+-- ============================================================
+-- 6. ISSUED CERTIFICATES
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.issued_certificates (
   id text PRIMARY KEY,
   recipient_id uuid,
@@ -223,15 +249,19 @@ CREATE TABLE IF NOT EXISTS public.issued_certificates (
   issued_at timestamptz DEFAULT now(),
   grade numeric,
   lang text DEFAULT 'ar',
+  design_style text DEFAULT 'Classic',
   governorate text DEFAULT 'الغربية'
 );
 
 ALTER TABLE public.issued_certificates
   ADD COLUMN IF NOT EXISTS grade numeric,
   ADD COLUMN IF NOT EXISTS lang text DEFAULT 'ar',
+  ADD COLUMN IF NOT EXISTS design_style text DEFAULT 'Classic',
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 7. WORK PLANS & OKRS ----------
+-- ============================================================
+-- 7. WORK PLANS & OKRS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.work_plans (
   id text PRIMARY KEY,
   title text NOT NULL,
@@ -250,7 +280,9 @@ CREATE TABLE IF NOT EXISTS public.work_plans (
 ALTER TABLE public.work_plans
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 8. VOLUNTEER IDEAS (IDEA BANK) ----------
+-- ============================================================
+-- 8. VOLUNTEER IDEAS (IDEA BANK)
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.volunteer_ideas (
   id text PRIMARY KEY,
   title text NOT NULL,
@@ -268,7 +300,9 @@ CREATE TABLE IF NOT EXISTS public.volunteer_ideas (
 ALTER TABLE public.volunteer_ideas
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 9. EVALUATIONS & 360 FEEDBACK ----------
+-- ============================================================
+-- 9. EVALUATIONS & 360 FEEDBACK
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.member_evaluations (
   id text PRIMARY KEY,
   target_user_id uuid,
@@ -311,7 +345,9 @@ CREATE TABLE IF NOT EXISTS public.leader_feedbacks (
 ALTER TABLE public.leader_feedbacks
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 10. DISCIPLINARY RECORDS ----------
+-- ============================================================
+-- 10. DISCIPLINARY RECORDS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.disciplinary_records (
   id text PRIMARY KEY,
   member_id uuid,
@@ -332,7 +368,9 @@ CREATE TABLE IF NOT EXISTS public.disciplinary_records (
 ALTER TABLE public.disciplinary_records
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 11. LIVE WORKSHOPS & ACADEMY ----------
+-- ============================================================
+-- 11. LIVE WORKSHOPS & ACADEMY
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.live_workshops (
   id text PRIMARY KEY,
   title text NOT NULL,
@@ -369,7 +407,9 @@ CREATE TABLE IF NOT EXISTS public.academy_courses (
 ALTER TABLE public.academy_courses
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 12. REWARDS SHOP & PURCHASES ----------
+-- ============================================================
+-- 12. REWARDS SHOP & PURCHASES
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.reward_items (
   id text PRIMARY KEY,
   title text NOT NULL,
@@ -397,7 +437,9 @@ CREATE TABLE IF NOT EXISTS public.reward_purchases (
 ALTER TABLE public.reward_purchases
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 13. WEEKLY QUIZZES & CHALLENGES ----------
+-- ============================================================
+-- 13. WEEKLY QUIZZES & CHALLENGES
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.weekly_quizzes (
   id text PRIMARY KEY,
   question text NOT NULL,
@@ -427,7 +469,9 @@ CREATE TABLE IF NOT EXISTS public.weekly_challenges (
 ALTER TABLE public.weekly_challenges
   ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
 
--- ---------- 14. MEMORY WALL (PHOTO/STORY SHARING) ----------
+-- ============================================================
+-- 14. MEMORY WALL (PHOTO/STORY SHARING)
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.memory_wall (
   id text PRIMARY KEY,
   author_id uuid,
@@ -443,9 +487,75 @@ CREATE TABLE IF NOT EXISTS public.memory_wall (
 );
 
 ALTER TABLE public.memory_wall
-  ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية';
+  ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية',
+  ADD COLUMN IF NOT EXISTS author_avatar text,
+  ADD COLUMN IF NOT EXISTS author_role text,
+  ADD COLUMN IF NOT EXISTS caption text,
+  ADD COLUMN IF NOT EXISTS likes jsonb DEFAULT '[]';
 
--- ---------- 15. ACTIVITY LOGS & ORG SETTINGS ----------
+-- ============================================================
+-- 15. OCCASIONS & CELEBRATIONS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.occasions (
+  id text PRIMARY KEY,
+  title text NOT NULL,
+  message text NOT NULL,
+  category text DEFAULT 'Custom',
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  icon text DEFAULT '🎉',
+  banner_bg text DEFAULT 'from-amber-600 to-amber-800',
+  target_committee text DEFAULT 'All',
+  created_by uuid,
+  created_by_name text,
+  created_at timestamptz DEFAULT now(),
+  is_active boolean DEFAULT true,
+  governorate text DEFAULT 'الغربية'
+);
+
+ALTER TABLE public.occasions
+  ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية',
+  ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true;
+
+-- ============================================================
+-- 16. ISSUED SOCIAL POSTERS & GREETINGS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.issued_posters (
+  id text PRIMARY KEY,
+  member_id text,
+  member_name text NOT NULL,
+  member_role text,
+  member_committee text,
+  member_avatar_url text,
+  title text NOT NULL,
+  custom_msg text,
+  theme_color text DEFAULT 'blue',
+  sent_by text,
+  sent_by_name text,
+  created_at timestamptz DEFAULT now(),
+  governorate text DEFAULT 'الغربية'
+);
+
+ALTER TABLE public.issued_posters
+  ADD COLUMN IF NOT EXISTS governorate text DEFAULT 'الغربية',
+  ADD COLUMN IF NOT EXISTS theme_color text DEFAULT 'blue';
+
+-- ============================================================
+-- 17. WEB PUSH SUBSCRIPTIONS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid,
+  endpoint text UNIQUE NOT NULL,
+  p256dh text NOT NULL,
+  auth text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- ============================================================
+-- 17. ACTIVITY LOGS & ORG SETTINGS
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.activity_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid,
@@ -475,9 +585,51 @@ CREATE TABLE IF NOT EXISTS public.org_settings (
 INSERT INTO public.org_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================
--- ENABLE RLS & CREATE OPEN POLICIES FOR ALL TABLES (VIP COMPATIBLE)
+-- 18. HIGH-PERFORMANCE INDEXES
 -- ============================================================
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_governorate ON public.profiles(governorate);
+CREATE INDEX IF NOT EXISTS idx_tasks_governorate ON public.tasks(governorate);
+CREATE INDEX IF NOT EXISTS idx_tasks_committee ON public.tasks(committee);
+CREATE INDEX IF NOT EXISTS idx_tasks_created_by ON public.tasks(created_by);
+CREATE INDEX IF NOT EXISTS idx_submissions_task_id ON public.submissions(task_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_member_id ON public.submissions(member_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_meeting_id ON public.attendance(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_member_id ON public.attendance(member_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON public.activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON public.push_subscriptions(user_id);
 
+-- ============================================================
+-- 19. AUTOMATIC AUTH USER PROFILE SYNC TRIGGER
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, full_name, email, role, status, governorate)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    'Member',
+    'Active',
+    COALESCE(NEW.raw_user_meta_data->>'governorate', 'الغربية')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================
+-- 20. ROW LEVEL SECURITY (RLS) & OPEN POLICIES FOR CLOUD SYNC
+-- ============================================================
 DO $$
 DECLARE
   tbl text;
@@ -487,14 +639,15 @@ DECLARE
     'attendance', 'excuses_freezes', 'work_plans', 'volunteer_ideas',
     'member_evaluations', 'leader_feedbacks', 'disciplinary_records',
     'live_workshops', 'academy_courses', 'reward_items', 'reward_purchases',
-    'weekly_quizzes', 'weekly_challenges', 'memory_wall'
+    'weekly_quizzes', 'weekly_challenges', 'memory_wall', 'occasions',
+    'issued_posters', 'push_subscriptions'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP
     -- 1. Enable RLS
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
 
-    -- 2. Drop existing open/all policies if any
+    -- 2. Drop existing policies if any
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', 'open_access_' || tbl, tbl);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', tbl || '_select_all_auth', tbl);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', tbl || '_insert_any_auth', tbl);
@@ -502,15 +655,14 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', tbl || '_delete_all', tbl);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I;', 'open access ' || tbl, tbl);
 
-    -- 3. Create clean Open Policy allowing full select, insert, update, delete for VIP & Auth
+    -- 3. Create clean Open Policy allowing full sync
     EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL USING (true) WITH CHECK (true);', 'open_access_' || tbl, tbl);
   END LOOP;
 END $$;
 
 -- ============================================================
--- RECREATE / ENSURE REALTIME SUBSCRIPTIONS
+-- 21. REALTIME REPLICATION PUBLICATION
 -- ============================================================
-
 DO $$
 BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE
@@ -535,21 +687,24 @@ BEGIN
     public.reward_purchases,
     public.weekly_quizzes,
     public.weekly_challenges,
-    public.memory_wall;
+    public.memory_wall,
+    public.occasions,
+    public.issued_posters,
+    public.push_subscriptions;
 EXCEPTION
   WHEN others THEN NULL;
 END $$;
 
 -- ============================================================
--- STORAGE BUCKETS (Make Public and Open RLS)
+-- 22. STORAGE BUCKETS (Public & Open RLS)
 -- ============================================================
-
 INSERT INTO storage.buckets (id, name, public) VALUES ('task-submissions', 'task-submissions', true) ON CONFLICT (id) DO UPDATE SET public = true;
 INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO UPDATE SET public = true;
 INSERT INTO storage.buckets (id, name, public) VALUES ('attachments', 'attachments', true) ON CONFLICT (id) DO UPDATE SET public = true;
 INSERT INTO storage.buckets (id, name, public) VALUES ('announcements', 'announcements', true) ON CONFLICT (id) DO UPDATE SET public = true;
 INSERT INTO storage.buckets (id, name, public) VALUES ('memory-wall', 'memory-wall', true) ON CONFLICT (id) DO UPDATE SET public = true;
 INSERT INTO storage.buckets (id, name, public) VALUES ('certificates', 'certificates', true) ON CONFLICT (id) DO UPDATE SET public = true;
+INSERT INTO storage.buckets (id, name, public) VALUES ('eye-bucket', 'eye-bucket', true) ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- Storage open policies
 DO $$

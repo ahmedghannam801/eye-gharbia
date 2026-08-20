@@ -17,51 +17,132 @@ interface HeaderProps {
 }
 
 // Map a notification to the correct view + optional targetId so clicking it
-// takes the user straight to the right place (announcement, task, profile,
-// certificates, etc.) — not the generic "tasks" page for everything.
+// takes the user straight to the exact right place (disciplinary, meeting, announcement, task, profile, etc.)
 const getNotifDestination = (
   notif: SystemNotification,
   role: string
 ): { view: string; targetId?: string } => {
   const title = notif.title || '';
+  const message = notif.message || '';
   const relatedId = notif.relatedId;
 
-  // 1) Certificate notification → take them to their certificates on the profile
-  if (title.includes('شهادة') || title.includes('Certificate') || title.startsWith('📜')) {
+  // 1) Disciplinary / Warnings / Notices (لفت نظر / إنذار / تنبيه)
+  if (
+    title.includes('لفت نظر') ||
+    title.includes('إنذار') ||
+    title.includes('تحذير') ||
+    title.includes('تنبيه') ||
+    title.includes('Notice') ||
+    title.includes('Warning') ||
+    title.includes('Disciplinary') ||
+    message.includes('لفت نظر') ||
+    message.includes('إنذار') ||
+    message.includes('Warning')
+  ) {
     return { view: 'profile', targetId: relatedId };
   }
 
-  // 2) Badges → profile page (badges are shown there)
-  if (title.includes('شارة') || title.startsWith('🏅')) {
-    return { view: 'profile' };
+  // 2) Meetings (اجتماعات)
+  if (
+    title.includes('اجتماع') ||
+    title.includes('Meeting') ||
+    message.includes('اجتماع') ||
+    message.includes('Meeting')
+  ) {
+    return { view: 'meetings', targetId: relatedId };
   }
 
-  // 3) Quiz / trivia answers
-  if (title.includes('إجابة') || title.startsWith('🎉')) {
-    return { view: 'trivia' };
+  // 3) Workshops / Academy (ورش عمل / بث مباشر / أكاديمية)
+  if (
+    title.includes('ورشة') ||
+    title.includes('Workshop') ||
+    title.includes('أكاديمية') ||
+    title.includes('Academy') ||
+    title.includes('بث مباشر') ||
+    title.includes('Live')
+  ) {
+    return { view: 'academy', targetId: relatedId };
   }
 
-  // 4) Anonymous suggestion box (admins only receive this)
-  if (title.includes('اقتراح') || title.startsWith('💬')) {
-    return { view: 'suggestions' };
+  // 4) Certificates (شهادات)
+  if (title.includes('شهادة') || title.includes('Certificate') || title.startsWith('📜')) {
+    return { view: 'certificates', targetId: relatedId };
   }
 
-  // 5) Announcements → announcements view, scroll to that one
-  if (title.includes('Announcement') || title.includes('إعلان')) {
+  // 5) Badges & Honours (شارات / رتب)
+  if (title.includes('شارة') || title.startsWith('🏅') || title.includes('Badge')) {
+    return { view: 'profile', targetId: relatedId };
+  }
+
+  // 6) Work Plans & OKRs (خطط العمل)
+  if (title.includes('خطة عمل') || title.includes('Work Plan') || title.includes('OKR') || title.includes('هدف')) {
+    return { view: 'workplans', targetId: relatedId };
+  }
+
+  // 7) Ideas & Pitch Bank (بنك الأفكار والمقترحات)
+  if (title.includes('فكرة') || title.includes('مقترح') || title.includes('Idea') || title.includes('اقتراح') || title.startsWith('💬')) {
+    return { view: 'ideabank', targetId: relatedId };
+  }
+
+  // 8) Evaluations & Feedback 360 (التقييمات)
+  if (title.includes('تقييم') || title.includes('Evaluation') || title.includes('Feedback') || title.includes('360')) {
+    return { view: 'feedback', targetId: relatedId };
+  }
+
+  // 9) Leaderboard & Ranks (لوحة الصدارة)
+  if (title.includes('صدارة') || title.includes('Leaderboard') || title.includes('Rank') || title.includes('ترتيب')) {
+    return { view: 'leaderboard', targetId: relatedId };
+  }
+
+  // 10) Rewards & Shop (متجر المكافآت)
+  if (title.includes('مكافأة') || title.includes('متجر') || title.includes('Reward') || title.includes('Shop') || title.startsWith('🎁')) {
+    return { view: 'rewards', targetId: relatedId };
+  }
+
+  // 11) Challenges & Streaks (التحديات)
+  if (title.includes('تحدي') || title.includes('Challenge') || title.includes('سلسلة') || title.startsWith('🔥')) {
+    return { view: 'challenges', targetId: relatedId };
+  }
+
+  // 12) Memory Wall (معرض الذكريات)
+  if (title.includes('ذكريات') || title.includes('Memory') || title.startsWith('📸')) {
+    return { view: 'memory-wall', targetId: relatedId };
+  }
+
+  // 13) Polls (الاستطلاعات)
+  if (title.includes('استطلاع') || title.includes('تصويت') || title.includes('Poll')) {
+    return { view: 'polls', targetId: relatedId };
+  }
+
+  // 14) Excuses & Freeze Requests (الأعذار والتجميد)
+  if (title.includes('عذر') || title.includes('تجميد') || title.includes('Excuse') || title.includes('Freeze')) {
+    return { view: 'excuses-freeze', targetId: relatedId };
+  }
+
+  // 15) Posters & Celebrations (البوسترات)
+  if (title.includes('بوستر') || title.includes('تهنئة') || title.includes('Poster')) {
+    return { view: 'poster-maker', targetId: relatedId };
+  }
+
+  // 16) Weekly Trivia / Quizzes (المسابقات)
+  if (title.includes('مسابقة') || title.includes('إجابة') || title.includes('Trivia') || title.includes('Quiz') || title.startsWith('🎉')) {
+    return { view: 'trivia', targetId: relatedId };
+  }
+
+  // 17) Announcements (الإعلانات)
+  if (title.includes('Announcement') || title.includes('إعلان') || title.includes('تعميم')) {
     return { view: 'announcements', targetId: relatedId };
   }
 
-  // 6) New registration request (admins only)
+  // 18) New registration request (admins only)
   if (title.includes('Registration') || title.includes('تسجيل')) {
-    if (role === 'Super Admin' || role === 'Vice' || role === 'Coordinator' || role === 'Deputy Coordinator') {
-      // No dedicated members-management view — take them to the dashboard
-      // where the registration-approval CTA lives.
+    if (['Super Admin', 'Vice', 'Coordinator', 'Deputy Coordinator', 'HRM'].includes(role)) {
       return { view: 'dashboard' };
     }
     return { view: 'profile' };
   }
 
-  // 7) Account status / role changes → profile
+  // 19) Account status / role changes → profile
   if (
     title.includes('Account') ||
     title.includes('حساب') ||
@@ -69,13 +150,23 @@ const getNotifDestination = (
     title.includes('منصبك') ||
     title.includes('ترقية')
   ) {
-    return { view: 'profile' };
+    return { view: 'profile', targetId: relatedId };
   }
 
-  // 8) Task / submission related (most common case) → tasks with focus
-  // Covers: New Task Assigned, New Task Published, Submission Reviewed,
-  // Submission Rejected, Resubmission Requested, New Submission Received
-  return { view: 'tasks', targetId: relatedId };
+  // 20) Task / submission related → tasks with focus
+  if (
+    title.includes('Task') ||
+    title.includes('مهمة') ||
+    title.includes('Submission') ||
+    title.includes('تسليم') ||
+    message.includes('مهمة') ||
+    message.includes('تسليم') ||
+    message.includes('task')
+  ) {
+    return { view: 'tasks', targetId: relatedId };
+  }
+
+  return { view: 'dashboard', targetId: relatedId };
 };
 
 const translateNotification = (title: string, message: string, lang: 'ar' | 'en') => {

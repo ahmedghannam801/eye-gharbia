@@ -8,7 +8,7 @@ import { Header } from './components/Header';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { DashboardStats } from './components/DashboardStats';
 import { useTheme } from './lib/ThemeContext';
-import { isSupabaseConfigured } from './lib/supabaseClient';
+import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 import { SupabaseConfigError } from './components/SupabaseConfigError';
 import { requestPushPermission, triggerPushFromSystemNotif, registerServiceWorker, recordUserVisit, registerPeriodicSync } from './lib/pushNotifications';
 import { sendEmailAlert } from './lib/emailService';
@@ -86,30 +86,75 @@ export default function App() {
   // Connects to Supabase and restores the logged-in session (if any)
   const [dbReady, setDbReady] = useState(false);
   const [showEmailConfirmed, setShowEmailConfirmed] = useState(false);
+  const [authErrorMsg, setAuthErrorMsg] = useState<string>('');
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
       setDbReady(true);
       return;
     }
 
+    let isPasswordRecovery = false;
+
+    // 1. Listen for real-time Auth state events (specifically PASSWORD_RECOVERY)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event: string) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        isPasswordRecovery = true;
+        setCurrentView('reset-password');
+        setDbReady(true);
+      } else if (event === 'SIGNED_OUT') {
+        if (currentView !== 'reset-password' && currentView !== 'forgot') {
+          setCurrentUser(null);
+          setCurrentView('login');
+        }
+      }
+    });
+
     const checkEmailConfirmation = async () => {
       const href = window.location.href;
-      const hasSignupType = href.includes('type=signup') || href.includes('type%3Dsignup');
-      const hasRecoveryType = href.includes('type=recovery') || href.includes('type%3Drecovery');
-      const hasAccessToken = href.includes('access_token=') || href.includes('access_token%3D');
+      const hash = window.location.hash.replace(/^#/, '');
+      const search = window.location.search.replace(/^\?/, '');
 
-      if (hasRecoveryType && hasAccessToken) {
-        await db.init();
+      const hashParams = new URLSearchParams(hash);
+      const searchParams = new URLSearchParams(search);
+
+      // Check for errors returned by Supabase Auth (e.g. expired or invalid reset link)
+      const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+      const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+      const errorParam = hashParams.get('error') || searchParams.get('error');
+
+      if (errorParam || errorDesc || errorCode) {
+        window.history.replaceState(null, '', window.location.pathname);
+        setAuthErrorMsg(errorDesc ? decodeURIComponent(errorDesc.replace(/\+/g, ' ')) : 'رابط استعادة كلمة المرور غير صالح أو انتهت صلاحيته.');
+        setCurrentView('login');
+        setDbReady(true);
+        return;
+      }
+
+      const hasSignupType = href.includes('type=signup') || href.includes('type%3Dsignup') || hashParams.get('type') === 'signup';
+      const hasRecoveryType = href.includes('type=recovery') || href.includes('type%3Drecovery') || hashParams.get('type') === 'recovery';
+      const hasAccessToken = href.includes('access_token=') || href.includes('access_token%3D') || hashParams.has('access_token');
+      const hasCode = searchParams.has('code');
+
+      if (hasRecoveryType || isPasswordRecovery) {
+        isPasswordRecovery = true;
+        try {
+          await db.init();
+        } catch (err) {
+          console.warn('[App] DB init warning during recovery:', err);
+        }
+        // Clean URL while keeping user on reset password form
         window.history.replaceState(null, '', window.location.pathname);
         setCurrentView('reset-password');
         setDbReady(true);
         return;
       }
 
-      if (hasSignupType && hasAccessToken) {
-        await db.init();
-        await db.logout();
+      if (hasSignupType && (hasAccessToken || hasCode)) {
+        try {
+          await db.init();
+          await db.logout();
+        } catch {}
         // Clear hash from URL
         window.history.replaceState(null, '', window.location.pathname);
         setShowEmailConfirmed(true);
@@ -123,18 +168,20 @@ export default function App() {
       } catch (err) {
         console.warn('[App] DB init warning:', err);
       } finally {
-        const saved = db.getCurrentUser();
-        if (saved) {
-          setCurrentUser(saved);
-          setCurrentView('dashboard');
-          db.checkDeadlineNotifications();
-          // Auto-prompt push notifications for existing logged-in members
-          setTimeout(async () => {
-            await requestPushPermission();
-            await registerServiceWorker();
-            await registerPeriodicSync();
-            recordUserVisit(saved.id);
-          }, 1000);
+        if (!isPasswordRecovery) {
+          const saved = db.getCurrentUser();
+          if (saved) {
+            setCurrentUser(saved);
+            setCurrentView('dashboard');
+            db.checkDeadlineNotifications();
+            // Auto-prompt push notifications for existing logged-in members
+            setTimeout(async () => {
+              await requestPushPermission();
+              await registerServiceWorker();
+              await registerPeriodicSync();
+              recordUserVisit(saved.id);
+            }, 1000);
+          }
         }
         setDbReady(true);
       }
@@ -149,13 +196,16 @@ export default function App() {
 
     // Subscribe to DB changes to synchronize current user state
     const unsubscribe = db.onChange(() => {
-      const saved = db.getCurrentUser();
-      setCurrentUser(saved);
+      if (!isPasswordRecovery) {
+        const saved = db.getCurrentUser();
+        setCurrentUser(saved);
+      }
     });
 
     return () => {
       clearInterval(deadlineInterval);
       unsubscribe();
+      authListener?.subscription?.unsubscribe();
     };
   }, []);
 
@@ -438,14 +488,18 @@ export default function App() {
   }
 
   // 1. PUBLIC VIEWS (Auth screens)
-  if (!currentUser || currentView === 'landing' || currentView === 'login' || currentView === 'register' || currentView === 'reset-password') {
-    const activeMode = currentView === 'register' ? 'register' : currentView === 'reset-password' ? 'reset-password' : 'login';
+  if (!currentUser || currentView === 'landing' || currentView === 'login' || currentView === 'register' || currentView === 'reset-password' || currentView === 'forgot') {
+    const activeMode = currentView === 'register' ? 'register' : currentView === 'reset-password' ? 'reset-password' : currentView === 'forgot' ? 'forgot' : 'login';
     return (
       <Auth
-        initialMode={activeMode as any}
+        initialMode={activeMode}
         onAuthSuccess={handleAuthSuccess}
-        onNavigateHome={() => setCurrentView('login')}
+        onNavigateHome={() => {
+          setCurrentView('login');
+          setAuthErrorMsg('');
+        }}
         showEmailConfirmedMsg={showEmailConfirmed}
+        initialErrorMsg={authErrorMsg}
       />
     );
   }
