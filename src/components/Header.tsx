@@ -39,7 +39,7 @@ const getNotifDestination = (
     message.includes('إنذار') ||
     message.includes('Warning')
   ) {
-    return { view: 'profile', targetId: relatedId };
+    return { view: 'disciplinary', targetId: relatedId };
   }
 
   // 2) Meetings (اجتماعات)

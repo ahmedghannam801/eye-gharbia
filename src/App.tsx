@@ -465,7 +465,7 @@ export default function App() {
         return <DigitalPortfolio currentUser={currentUser} targetUserId={selectedUserId} />;
       case 'disciplinary':
       case 'disciplinary-members':
-        return <DisciplinaryRecords currentUser={currentUser} />;
+        return <DisciplinaryRecords currentUser={currentUser} selectedRecordId={notifTargetTaskId} />;
       case 'poster-maker':
         return <SocialPosterMaker currentUser={currentUser} />;
       case 'profile':

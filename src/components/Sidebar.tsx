@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'feedback',     label: language === 'ar' ? 'تقييم الأعضاء والقادة 360°' : '360° Evaluation Hub', icon: Star, roles: ['Leader', ...TOP_ROLES] },
         { id: 'radar',        label: language === 'ar' ? 'رادار الأداء' : 'Performance Radar',      icon: BarChart3, roles: ALL_ROLES },
         { id: 'exec-report',  label: language === 'ar' ? 'مركز التقارير الموحد' : 'Reports Hub', icon: FileCheck, roles: [...TOP_ROLES, 'Leader'] },
-        { id: 'disciplinary', label: language === 'ar' ? 'السجلات والتنبيهات الانضباطية' : 'Disciplinary Records', icon: Crown, roles: [...TOP_ROLES, 'Leader'] },
+        { id: 'disciplinary', label: language === 'ar' ? 'السجل الانضباطي والإنذارات 📜' : 'Disciplinary Vault 📜', icon: ShieldAlert, roles: ALL_ROLES },
       ],
     },
     {
