@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { UserProfile, DisciplinaryRecord } from '../types';
 import { db } from '../db/localDb';
 import { useLanguage } from '../lib/LanguageContext';
@@ -301,17 +302,17 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
         )}
       </div>
 
-      {/* VIEW OFFICIAL A4 DOCUMENT MODAL - TRUE ZERO-SCROLL FULLSCREEN FIT */}
-      {viewingRecord && (
-        <div className="fixed inset-0 z-[999999] bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-between p-2 sm:p-3 w-screen h-screen overflow-hidden animate-fade-in" style={{ zIndex: 999999 }} dir="rtl">
-          {/* Floating Action Controls Bar (Compact) */}
-          <div className="shrink-0 z-30 mb-2 bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl px-4 py-1.5 flex items-center justify-between gap-3 max-w-4xl w-full text-slate-900 dark:text-white backdrop-blur-md">
+      {/* VIEW OFFICIAL A4 DOCUMENT MODAL - TRUE SCREEN-FITTING AUTHENTIC VIEWER VIA PORTAL */}
+      {viewingRecord && createPortal(
+        <div className="fixed inset-0 z-[9999999] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-2 sm:p-4 w-screen h-screen overflow-hidden animate-fade-in" dir="rtl" style={{ zIndex: 9999999 }}>
+          {/* Action Bar */}
+          <div className="w-full max-w-[640px] bg-slate-900/95 border border-slate-700 shadow-2xl rounded-2xl px-4 py-2 flex items-center justify-between gap-3 text-white mb-2 shrink-0 backdrop-blur-md">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
               <span className="font-black text-xs sm:text-sm">
                 {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'معاينة لفت نظر رسمي 📜' : 'معاينة إنذار رسمي معتمد 🔴'}
               </span>
-              <span className="text-[10px] font-mono text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-bold">
+              <span className="text-[11px] font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded-md font-bold">
                 {viewingRecord.noticeNumber || '01'}
               </span>
             </div>
@@ -332,25 +333,23 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
                     coordinator: viewingRecord.coordinator || 'محمود ربيع',
                   });
                 }}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">تحميل Word (.docx)</span>
-                <span className="sm:hidden">Word</span>
+                <span>Word (.docx)</span>
               </button>
               <button
                 type="button"
                 onClick={() => handlePrintDoc(viewingRecord)}
-                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">طباعة (PDF)</span>
-                <span className="sm:hidden">طباعة</span>
+                <span>طباعة (PDF)</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewingRecord(null)}
-                className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-red-500 text-slate-700 dark:text-slate-300 hover:text-white transition-all cursor-pointer"
+                className="p-1.5 rounded-xl bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white transition-all cursor-pointer"
                 title="إغلاق"
               >
                 <X className="w-4 h-4" />
@@ -358,29 +357,33 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
             </div>
           </div>
 
-          {/* Authentic Document Paper View - FITS 100% OF SCREEN HEIGHT WITHOUT SCROLLING */}
-          <div className="flex-1 w-full max-w-4xl max-h-[calc(100vh-60px)] bg-white text-black p-5 sm:p-8 md:p-10 rounded-2xl border-4 border-slate-900 shadow-2xl relative overflow-hidden font-sans select-none flex flex-col justify-between my-auto" dir="rtl" style={{ color: '#000000', backgroundColor: '#ffffff' }}>
+          {/* Authentic Document Paper View - Fits 100% On Screen */}
+          <div 
+            className="rounded-xl border-2 sm:border-4 border-slate-900 shadow-2xl relative overflow-hidden font-sans select-none w-full max-w-[640px] max-h-[calc(100vh-75px)] p-4 sm:p-7 flex flex-col justify-between" 
+            dir="rtl" 
+            style={{ backgroundColor: '#ffffff', color: '#000000' }}
+          >
             {/* Background Watermark */}
             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-              <img src="/eye-logo.png" alt="watermark" className="w-64 h-64 object-contain" />
+              <img src="/eye-logo.png" alt="watermark" className="w-60 h-60 object-contain" />
             </div>
 
-            {/* Document Header - Exact Ministerial Header with Logos */}
-            <div className="flex justify-between items-center border-b-2 border-slate-900 pb-2.5 text-xs font-bold relative z-10 text-black shrink-0">
+            {/* Document Header */}
+            <div className="flex justify-between items-center border-b-2 border-slate-900 pb-2.5 text-xs font-bold relative z-10 text-black">
               <div className="flex items-center gap-2 text-right">
                 <img src="/ministry-logo.png" alt="وزارة الشباب والرياضة" className="h-10 sm:h-12 object-contain" onError={(e: any) => e.target.style.display = 'none'} />
                 <div className="space-y-0.5">
-                  <div className="font-black text-black text-xs sm:text-sm leading-tight">جمهورية مصر العربية</div>
-                  <div className="text-black font-bold text-[10px] sm:text-[11px] leading-tight">وزارة الشباب والرياضة</div>
-                  <div className="text-slate-700 text-[9px] font-bold leading-tight">Ministry of Youth and Sports</div>
+                  <div className="font-black text-black text-[11px] sm:text-xs">جمهورية مصر العربية</div>
+                  <div className="text-black font-bold text-[10px] sm:text-[11px]">وزارة الشباب والرياضة</div>
+                  <div className="text-slate-700 text-[8px] sm:text-[9px] font-bold">Ministry of Youth and Sports</div>
                 </div>
               </div>
 
               <div className="text-center space-y-0.5">
-                <div className="font-black text-[#0284c7] text-sm sm:text-base md:text-lg">
+                <div className="font-black text-[#0284c7] text-xs sm:text-sm">
                   المصريون الشباب – وزارة الشباب والرياضة
                 </div>
-                <div className="text-slate-700 font-bold text-[11px] sm:text-xs">محافظة {viewingRecord.governorate || 'الغربية'}</div>
+                <div className="text-slate-700 font-bold text-[10px] sm:text-xs">محافظة {viewingRecord.governorate || 'الغربية'}</div>
               </div>
 
               <div className="flex items-center justify-end gap-2 text-left">
@@ -388,38 +391,38 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
               </div>
             </div>
 
-            {/* Body Content - Scaled to fit perfectly without overflow */}
-            <div className="relative z-10 space-y-3 sm:space-y-4 text-right text-black my-auto py-2 sm:py-3 font-sans overflow-hidden">
-              <h2 className="text-center font-black text-2xl sm:text-3xl md:text-4xl text-[#dc2626] underline underline-offset-4 sm:underline-offset-8">
+            {/* Body Content */}
+            <div className="relative z-10 space-y-2.5 sm:space-y-3.5 text-right text-black my-auto py-2 font-sans">
+              <h2 className="text-center font-black text-xl sm:text-2xl text-[#dc2626] underline underline-offset-4">
                 {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'لفت نظر' : 'إنذار'}
               </h2>
 
-              <p className="font-bold text-xs sm:text-sm md:text-base leading-relaxed text-black pt-1">
+              <p className="font-bold text-xs sm:text-sm leading-relaxed text-black pt-1">
                 بعد الاطلاع على اللائحة التنفيذية والقوانين المنظمة للكيان الخاصة بحقوق وواجبات الأعضاء , قررنا نحن مسئولو لجنة الموارد البشرية بمحافظة : ( <span className="font-black underline">{viewingRecord.governorate || 'الغربية'}</span> )
               </p>
 
-              <p className="font-black text-xs sm:text-sm md:text-base text-black">
-                توجيه {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'لفت نظر' : 'الإنذار'} رقم ( <span className="font-black text-[#dc2626] font-mono text-base sm:text-xl">{viewingRecord.noticeNumber || '01'}</span> ) .
+              <p className="font-black text-xs sm:text-sm text-black">
+                توجيه {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice' ? 'لفت نظر' : 'الإنذار'} رقم ( <span className="font-black text-[#dc2626] font-mono text-sm sm:text-base">{viewingRecord.noticeNumber || '01'}</span> ) .
               </p>
 
-              <div className="flex flex-wrap justify-between font-black text-xs sm:text-sm md:text-base my-2 p-2.5 sm:p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-black">
-                <div>للعضو : <span className="text-[#dc2626] font-black px-1.5">{viewingRecord.memberName}</span></div>
-                <div>لجنة : <span className="text-[#dc2626] font-black px-1.5">{viewingRecord.committee || 'عام'}</span></div>
+              <div className="flex flex-wrap justify-between font-black text-xs sm:text-sm my-1.5 p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-black">
+                <div>للعضو : <span className="text-[#dc2626] font-black px-1">{viewingRecord.memberName}</span></div>
+                <div>لجنة : <span className="text-[#dc2626] font-black px-1">{viewingRecord.committee || 'عام'}</span></div>
               </div>
 
-              <p className="font-bold text-xs sm:text-sm md:text-base leading-relaxed text-black">
+              <p className="font-bold text-xs sm:text-sm leading-relaxed text-black">
                 {viewingRecord.reason && !viewingRecord.reason.includes('اجتماع')
                   ? viewingRecord.reason
                   : `وذلك لعدم حضور اجتماع يوم ( ${viewingRecord.meetingDay || 'الاجتماع الدوري'} ) , الموافق ( ${viewingRecord.meetingDate || new Date(viewingRecord.issuedAt).toLocaleDateString('ar-EG')} ) دون التبليغ بعذر عدم الحضور لمن يهمه الأمر .`}
               </p>
 
-              {/* Regulatory Alert Box (Matching Exact TemplatesHub Style) */}
-              <div className="border-2 border-dashed border-[#dc2626] bg-[#fff5f5] p-2.5 sm:p-4 rounded-xl text-center text-[#dc2626] space-y-1 sm:space-y-1.5 my-2">
+              {/* Regulatory Alert Box */}
+              <div className="border-2 border-dashed border-[#dc2626] bg-[#fff5f5] p-2.5 sm:p-3.5 rounded-xl text-center text-[#dc2626] space-y-1 my-2">
                 <div className="font-black flex items-center justify-center gap-1.5 text-xs sm:text-sm">
-                  <span className="text-base">🛑</span>
+                  <span>🛑</span>
                   <span>تنبيه</span>
                 </div>
-                <p className="font-bold text-[10px] sm:text-xs md:text-sm leading-relaxed text-[#991b1b]">
+                <p className="font-bold text-[10px] sm:text-xs leading-relaxed text-[#991b1b]">
                   {viewingRecord.type === 'lft_nazar' || viewingRecord.severity === 'Notice'
                     ? 'يرجى العلم أن تلقي عدد 2 لفت نظر يُعتبر معادلاً للحصول على إنذار واحد , نرجو الالتزام بالإرشادات المحددة لتجنب أي إجراءات قد تؤثر على استمرار مشاركتكم.'
                     : 'نود إعلامكم أنه سيتم إنهاء المشاركة بالكيان بشكل رسمي في حال تلقي ثلاثة إنذارات , نرجو الالتزام بالتوجيهات لضمان استمرار مشاركتكم الفعالة.'}
@@ -428,30 +431,31 @@ export const DisciplinaryRecords: React.FC<DisciplinaryRecordsProps> = ({ curren
             </div>
 
             {/* Signatures & Footer */}
-            <div className="relative z-10 pt-2.5 sm:pt-4 border-t-2 border-slate-300 text-black shrink-0">
-              <div className="flex justify-between text-center font-bold text-[11px] sm:text-xs md:text-sm">
-                <div className="space-y-1.5 sm:space-y-2">
+            <div className="relative z-10 pt-2 border-t-2 border-slate-300 text-black">
+              <div className="flex justify-between text-center font-bold text-[11px] sm:text-xs">
+                <div className="space-y-2">
                   <div className="font-black text-slate-800">مسؤول لجنة الموارد البشرية</div>
-                  <div className="font-black text-xs sm:text-sm md:text-base text-slate-900 border-b border-dashed border-slate-400 pb-0.5">
+                  <div className="font-black text-xs sm:text-sm text-slate-900 border-b border-dashed border-slate-400 pb-0.5">
                     أ. {viewingRecord.issuedByName || 'أحمد إبراهيم'}
                   </div>
                 </div>
 
-                <div className="space-y-1.5 sm:space-y-2">
+                <div className="space-y-2">
                   <div className="font-black text-slate-800">منسق عام المحافظة</div>
-                  <div className="font-black text-xs sm:text-sm md:text-base text-slate-900 border-b border-dashed border-slate-400 pb-0.5">
+                  <div className="font-black text-xs sm:text-sm text-slate-900 border-b border-dashed border-slate-400 pb-0.5">
                     أ. {viewingRecord.coordinator || 'محمود ربيع'}
                   </div>
                 </div>
               </div>
 
               {/* Official Cyan Footer Hashtag */}
-              <div className="text-center font-black text-[#0284c7] text-xs sm:text-sm mt-2 sm:mt-3 pt-1.5 border-t border-slate-200">
+              <div className="text-center font-black text-[#0284c7] text-[11px] sm:text-xs mt-2 pt-1 border-t border-slate-200">
                 #معا_نحو_مستقبل_افضل
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ISSUE WARNING MODAL */}
