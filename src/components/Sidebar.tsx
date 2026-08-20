@@ -3,7 +3,7 @@ import { EyeLogo, MinistryLogo } from './EyeLogo';
 
 import { UserProfile, getUserRoleTitle } from '../types';
 import { db, saveProfileOverride } from '../db/localDb';
-import { PanelRightClose, PanelRightOpen, LayoutDashboard, FolderKanban, Megaphone, BarChart3, User, Settings, LogOut, X, Phone, Share2, Trophy, Bell, CalendarDays, Star, Target, Lightbulb, BookOpen, Gift, HelpCircle, Crown, Video, Radio, FileCheck, Calendar, MessageSquare, Flame, FolderDown, Bot, Camera, Clock, Award, Palette } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, LayoutDashboard, FolderKanban, Megaphone, BarChart3, User, Settings, LogOut, X, Phone, Share2, Trophy, Bell, CalendarDays, Star, Target, Lightbulb, BookOpen, Gift, HelpCircle, Crown, Video, Radio, FileCheck, Calendar, MessageSquare, Flame, FolderDown, Bot, Camera, Clock, Award, Palette, ShieldAlert } from 'lucide-react';
 import { useLanguage } from '../lib/LanguageContext';
 import { useTheme } from '../lib/ThemeContext';
 
